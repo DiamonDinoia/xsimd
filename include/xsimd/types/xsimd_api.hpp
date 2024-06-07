@@ -990,6 +990,20 @@ namespace xsimd
     }
 
     /**
+     * @ingroup batch_fp
+     *
+     * extracts the fraction part of a floating point number
+     * @param x floating point values.
+     * @return the fractional part of x
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> fractional(const batch<T, A>& x) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::fractional<A>(x, A {});
+    }
+
+    /**
      * @ingroup batch_logical
      *
      * Element-wise greater or equal comparison of batches \c x and \c y.

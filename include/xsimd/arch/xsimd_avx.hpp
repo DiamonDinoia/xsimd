@@ -101,7 +101,17 @@ namespace xsimd
             __m256d sign_mask = _mm256_set1_pd(-0.f); // -0.f = 1 << 31
             return _mm256_andnot_pd(sign_mask, self);
         }
-
+        // fractional
+        template <class A>
+        XSIMD_INLINE batch<float, A> fractional(batch<float, A> const& self, requires_arch<avx>, requires_arch<avx2>, requires_arch<avx512f>) noexcept
+        {
+            return _mm_getmant_ps(self, _MM_MANT_NORM_1_2, _MM_MANT_SIGN_zero);
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> fractional(batch<double, A> const& self, requires_arch<avx>, requires_arch<avx2>, requires_arch<avx512f>) noexcept
+        {
+            return _mm_getmant_pd(self, _MM_MANT_NORM_1_2, _MM_MANT_SIGN_zero);
+        }
         // add
         template <class A, class T, class = typename std::enable_if<std::is_integral<T>::value, void>::type>
         XSIMD_INLINE batch<T, A> add(batch<T, A> const& self, batch<T, A> const& other, requires_arch<avx>) noexcept

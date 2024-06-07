@@ -214,6 +214,17 @@ namespace xsimd
                 }
             }
         }
+        // fractional
+        template <class A>
+        XSIMD_INLINE batch<float, A> fractional(batch<float, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            return _mm512_getmant_ps(self, _MM_MANT_NORM_1_2, _MM_MANT_SIGN_zero);
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> fractional(batch<double, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            return _mm512_getmant_pd(self, _MM_MANT_NORM_1_2, _MM_MANT_SIGN_zero);
+        }
 
         // abs
         template <class A>

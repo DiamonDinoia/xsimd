@@ -1073,6 +1073,12 @@ namespace xsimd
             return select((self != batch_type(0.)), x | ::xsimd::bitwise_cast<T>(constants::mask2frexp<batch_type>()), batch_type(0.));
         }
 
+        template <class A, class T>
+        XSIMD_INLINE batch<T, A> fractional(const batch<T, A>& self, requires_arch<generic>) noexcept
+        {
+            return self - floor(self);
+        }
+
         // from bool
         template <class A, class T>
         XSIMD_INLINE batch<T, A> from_bool(batch_bool<T, A> const& self, requires_arch<generic>) noexcept

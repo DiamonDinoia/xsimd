@@ -1212,6 +1212,12 @@ namespace xsimd
         return std::frexp(val, &exp);
     }
 
+    template <class T, class _ = typename std::enable_if<std::is_floating_point<T>::value, void>::type>
+    XSIMD_INLINE T fractional(T const& val) noexcept
+    {
+        return val - std::floor(val);
+    }
+
     template <class T>
     XSIMD_INLINE T select(bool cond, T const& true_br, T const& false_br) noexcept
     {
