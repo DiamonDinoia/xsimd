@@ -1410,10 +1410,14 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE double reduce_add(batch<double, A> const& rhs, requires_arch<avx512f>) noexcept
         {
+#if defined(__INTEL_COMPILER)
+            return _mm512_reduce_add_pd(rhs);
+#else
             __m256d tmp1 = _mm512_extractf64x4_pd(rhs, 1);
             __m256d tmp2 = _mm512_extractf64x4_pd(rhs, 0);
             __m256d res1 = _mm256_add_pd(tmp1, tmp2);
             return reduce_add(batch<double, avx2>(res1), avx2 {});
+#endif
         }
         template <class A, class T, class = typename std::enable_if<std::is_integral<T>::value, void>::type>
         XSIMD_INLINE T reduce_add(batch<T, A> const& self, requires_arch<avx512f>) noexcept

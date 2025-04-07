@@ -53,8 +53,9 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE double reduce_add(batch<double, A> const& self, requires_arch<sse3>) noexcept
         {
-            __m128d tmp0 = _mm_hadd_pd(self, self);
-            return _mm_cvtsd_f64(tmp0);
+            double low = _mm_cvtsd_f64(self); // get lower element
+            double high = _mm_cvtsd_f64(_mm_shuffle_pd(self, self, 0x1)); // get upper element
+            return low + high;
         }
 
     }
