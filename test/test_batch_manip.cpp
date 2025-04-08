@@ -30,7 +30,7 @@ namespace xsimd
             /* Generate input data */
             for (std::size_t i = 0; i < N; ++i)
             {
-                lhs_in[i] = 2 * i + 1;
+                lhs_in[i] = static_cast<T>(2 * i + 1);
             }
             vects.push_back(std::move(lhs_in));
 
@@ -187,7 +187,7 @@ struct swizzle_test
         B b_exped = B::load_unaligned(v_exped.data());
 
         using index_type = typename as_index<value_type>::type;
-        auto index_batch = xsimd::make_batch_constant<index_type, arch_type, Reversor<index_type>>();
+        auto index_batch = xsimd::make_batch_constant<index_type, Reversor<index_type>, arch_type>();
 
         B b_res = xsimd::swizzle(b_lhs, index_batch);
         CHECK_BATCH_EQ(b_res, b_exped);
@@ -207,7 +207,7 @@ struct swizzle_test
         B b_exped = B::load_unaligned(v_exped.data());
 
         using index_type = typename as_index<value_type>::type;
-        auto index_batch = xsimd::make_batch_constant<index_type, arch_type, Last<index_type>>();
+        auto index_batch = xsimd::make_batch_constant<index_type, Last<index_type>, arch_type>();
 
         B b_res = xsimd::swizzle(b_lhs, index_batch);
         CHECK_BATCH_EQ(b_res, b_exped);
@@ -227,7 +227,7 @@ struct swizzle_test
         B b_exped = B::load_unaligned(v_exped.data());
 
         using index_type = typename as_index<value_type>::type;
-        auto index_batch = xsimd::make_batch_constant<index_type, arch_type, Dup<index_type>>();
+        auto index_batch = xsimd::make_batch_constant<index_type, Dup<index_type>, arch_type>();
 
         B b_res = xsimd::swizzle(b_lhs, index_batch);
         CHECK_BATCH_EQ(b_res, b_exped);

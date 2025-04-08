@@ -207,7 +207,7 @@ namespace xsimd
                 }
             };
             batch<T, A> tmp(val);
-            return select(make_batch_bool_constant<T, A, index_mask>(), self, tmp);
+            return select(make_batch_bool_constant<T, index_mask, A>(), self, tmp);
         }
 
         // get
@@ -258,6 +258,25 @@ namespace xsimd
             alignas(A::alignment()) T2 buffer[batch<std::complex<T>, A>::size];
             self.store_aligned(&buffer[0]);
             return buffer[i];
+        }
+
+        // load
+        template <class A, class T>
+        XSIMD_INLINE batch_bool<T, A> load_unaligned(bool const* mem, batch_bool<T, A>, requires_arch<generic>) noexcept
+        {
+            using batch_type = batch<T, A>;
+            batch_type ref(0);
+            constexpr auto size = batch_bool<T, A>::size;
+            alignas(A::alignment()) T buffer[size];
+            for (std::size_t i = 0; i < size; ++i)
+                buffer[i] = mem[i] ? 1 : 0;
+            return ref != batch_type::load_aligned(&buffer[0]);
+        }
+
+        template <class A, class T>
+        XSIMD_INLINE batch_bool<T, A> load_aligned(bool const* mem, batch_bool<T, A> b, requires_arch<generic>) noexcept
+        {
+            return load_unaligned(mem, b, A {});
         }
 
         // load_aligned
@@ -322,7 +341,7 @@ namespace xsimd
                 }
             };
 
-            return swizzle(self, make_batch_constant<as_unsigned_integer_t<T>, A, rotate_generator>(), A {});
+            return swizzle(self, make_batch_constant<as_unsigned_integer_t<T>, rotate_generator, A>(), A {});
         }
 
         template <size_t N, class A, class T>
@@ -343,7 +362,7 @@ namespace xsimd
                 }
             };
 
-            return swizzle(self, make_batch_constant<as_unsigned_integer_t<T>, A, rotate_generator>(), A {});
+            return swizzle(self, make_batch_constant<as_unsigned_integer_t<T>, rotate_generator, A>(), A {});
         }
 
         template <size_t N, class A, class T>
