@@ -13,8 +13,6 @@
 #ifndef XSIMD_AVX_HPP
 #define XSIMD_AVX_HPP
 
-#include "xsimd_common_fwd.hpp"
-
 #include <complex>
 #include <limits>
 #include <type_traits>
@@ -1480,15 +1478,9 @@ namespace xsimd
             constexpr bool is_dup_low = detail::is_dup_lo(mask);
             constexpr bool is_dup_hi = detail::is_dup_hi(mask);
             constexpr bool is_dup = is_dup_low || is_dup_hi;
-            constexpr bool is_broadcast = detail::is_broadcast(mask);
-
             XSIMD_IF_CONSTEXPR(is_identity)
             {
                 return self;
-            }
-            XSIMD_IF_CONSTEXPR(is_broadcast)
-            {
-                return broadcast<A, float>(self.get(V0), avx {});
             }
             XSIMD_IF_CONSTEXPR(is_dup)
             {
@@ -1524,10 +1516,6 @@ namespace xsimd
             // cannot use detail::mod_shuffle as the mod and shift are different in this case
             constexpr auto imm = ((V0 & 1) << 0) | ((V1 & 1) << 1) | ((V2 & 1) << 2) | ((V3 & 1) << 3);
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
-            XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
-            {
-                return broadcast<A, double>(self.get(V0), avx {});
-            }
             XSIMD_IF_CONSTEXPR(!detail::is_cross_lane(mask))
             {
                 return _mm256_permute_pd(self, imm);

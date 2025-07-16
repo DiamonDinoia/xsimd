@@ -41,10 +41,8 @@ namespace xsimd
         // Forward declarations for pack-level helpers
         namespace detail
         {
-            template <typename T = uint32_t, T... Vs>
+            template <typename T, T... Vs>
             XSIMD_INLINE constexpr bool is_identity() noexcept;
-            template <typename T = uint32_t, T... Vs>
-            XSIMD_INLINE constexpr bool is_cross_lane() noexcept;
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool is_identity(batch_constant<T, A, Vs...>) noexcept;
             template <typename T, class A, T... Vs>
@@ -57,10 +55,6 @@ namespace xsimd
             XSIMD_INLINE constexpr bool is_cross_lane(batch_constant<T, A, Vs...>) noexcept;
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool no_duplicates(batch_constant<T, A, Vs...>) noexcept;
-            template <typename T, class A, T... Vs>
-            XSIMD_INLINE constexpr bool is_broadcast(batch_constant<T, A, Vs...>) noexcept;
-            template <typename T, class A, T... Vs>
-            XSIMD_INLINE constexpr bool is_lane_reorder(batch_constant<T, A, Vs...>) noexcept;
 
         }
     }
