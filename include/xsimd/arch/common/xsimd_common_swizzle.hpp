@@ -143,17 +143,49 @@ namespace xsimd
                 return cross_impl<0, sizeof...(Vs), sizeof...(Vs) / 2, Vs...>::value;
             }
             template <typename T, T... Vs>
-            XSIMD_INLINE constexpr bool is_identity() noexcept { return detail::identity_impl<0, T, Vs...>(); }
+            XSIMD_INLINE constexpr bool is_identity() noexcept { return identity_impl<0, T, Vs...>(); }
             template <typename T, T... Vs>
             XSIMD_INLINE constexpr bool is_all_different() noexcept
             {
-                return detail::bitmask_impl<0, sizeof...(Vs), T, Vs...>() == ((1u << sizeof...(Vs)) - 1);
+                return bitmask_impl<0, sizeof...(Vs), T, Vs...>() == ((1u << sizeof...(Vs)) - 1);
+            }
+
+            template <typename T>
+            constexpr bool is_broadcast_impl() noexcept
+            {
+                return true;
+            }
+
+            template <typename T, T First>
+            constexpr bool is_broadcast_impl() noexcept
+            {
+                return true;
+            }
+
+            // Recursive case
+            template <typename T, T First, T Second, T... Rest>
+            constexpr bool is_broadcast_impl() noexcept
+            {
+                return (First == Second) && is_broadcast_impl<T, Second, Rest...>();
             }
 
             template <typename T, T... Vs>
-            XSIMD_INLINE constexpr bool is_dup_lo() noexcept { return detail::dup_lo_impl<0, sizeof...(Vs), T, Vs...>(); }
+            constexpr bool is_broadcast() noexcept
+            {
+                return is_broadcast_impl<T, Vs...>();
+            }
+
             template <typename T, T... Vs>
-            XSIMD_INLINE constexpr bool is_dup_hi() noexcept { return detail::dup_hi_impl<0, sizeof...(Vs), T, Vs...>(); }
+            XSIMD_INLINE constexpr bool is_lane_reorder() noexcept
+            {
+                static_assert((sizeof...(Vs) & 1) == 0, "Need an even number of lanes for a 2-way split");
+                return bitmask_impl<0, sizeof...(Vs), T, Vs...>() == ((1u << sizeof...(Vs)) - 1u) && !cross_impl<0, sizeof...(Vs), sizeof...(Vs) / 2, static_cast<uint32_t>(Vs)...>::value;
+            }
+
+            template <typename T, T... Vs>
+            XSIMD_INLINE constexpr bool is_dup_lo() noexcept { return dup_lo_impl<0, sizeof...(Vs), T, Vs...>(); }
+            template <typename T, T... Vs>
+            XSIMD_INLINE constexpr bool is_dup_hi() noexcept { return dup_hi_impl<0, sizeof...(Vs), T, Vs...>(); }
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool is_identity(batch_constant<T, A, Vs...>) noexcept { return is_identity<T, Vs...>(); }
             template <typename T, class A, T... Vs>
@@ -162,48 +194,48 @@ namespace xsimd
             XSIMD_INLINE constexpr bool is_dup_lo(batch_constant<T, A, Vs...>) noexcept { return is_dup_lo<T, Vs...>(); }
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool is_dup_hi(batch_constant<T, A, Vs...>) noexcept { return is_dup_hi<T, Vs...>(); }
+            template <typename T, T... Vs>
+            XSIMD_INLINE constexpr bool is_cross_lane() noexcept { return is_cross_lane<Vs...>(); }
             template <typename T, class A, T... Vs>
-            XSIMD_INLINE constexpr bool is_cross_lane(batch_constant<T, A, Vs...>) noexcept { return detail::is_cross_lane<Vs...>(); }
+            XSIMD_INLINE constexpr bool is_cross_lane(batch_constant<T, A, Vs...>) noexcept { return is_cross_lane<Vs...>(); }
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool no_duplicates(batch_constant<T, A, Vs...>) noexcept { return no_duplicates_impl<0, sizeof...(Vs), T, Vs...>(); }
+            template <typename T, class A, T... Vs>
+            XSIMD_INLINE constexpr bool is_broadcast(batch_constant<T, A, Vs...>) noexcept { return is_broadcast<T, Vs...>(); }
+            template <typename T, class A, T... Vs>
+            XSIMD_INLINE constexpr bool is_lane_reorder(batch_constant<T, A, Vs...>) noexcept { return is_lane_reorder<T, Vs...>(); }
             // ────────────────────────────────────────────────────────────────────────
-            //  compile-time tests (identity, all-different, dup-lo, dup-hi)
-            //  8-lane identity
             static_assert(is_identity<std::uint32_t, 0, 1, 2, 3, 4, 5, 6, 7>(), "identity failed");
-            // 8-lane reverse is all-different but not identity
             static_assert(is_all_different<std::uint32_t, 7, 6, 5, 4, 3, 2, 1, 0>(), "all-diff failed");
             static_assert(!is_identity<std::uint32_t, 7, 6, 5, 4, 3, 2, 1, 0>(), "identity on reverse");
-            // 8-lane dup-lo (repeat 0..3 twice)
             static_assert(is_dup_lo<std::uint32_t, 0, 1, 2, 3, 0, 1, 2, 3>(), "dup_lo failed");
             static_assert(!is_dup_hi<std::uint32_t, 0, 1, 2, 3, 0, 1, 2, 3>(), "dup_hi on dup_lo");
-            // 8-lane dup-hi (repeat 4..7 twice)
             static_assert(is_dup_hi<std::uint32_t, 4, 5, 6, 7, 4, 5, 6, 7>(), "dup_hi failed");
             static_assert(!is_dup_lo<std::uint32_t, 4, 5, 6, 7, 4, 5, 6, 7>(), "dup_lo on dup_hi");
-            // ────────────────────────────────────────────────────────────────────────
-            //  4-lane identity
             static_assert(is_identity<std::uint32_t, 0, 1, 2, 3>(), "4-lane identity failed");
-            // 4-lane reverse all-different but not identity
             static_assert(is_all_different<std::uint32_t, 3, 2, 1, 0>(), "4-lane all-diff failed");
             static_assert(!is_identity<std::uint32_t, 3, 2, 1, 0>(), "4-lane identity on reverse");
-            // 4-lane dup-lo (repeat 0..1 twice)
             static_assert(is_dup_lo<std::uint32_t, 0, 1, 0, 1>(), "4-lane dup_lo failed");
             static_assert(!is_dup_hi<std::uint32_t, 0, 1, 0, 1>(), "4-lane dup_hi on dup_lo");
-            // 4-lane dup-hi (repeat 2..3 twice)
             static_assert(is_dup_hi<std::uint32_t, 2, 3, 2, 3>(), "4-lane dup_hi failed");
             static_assert(!is_dup_lo<std::uint32_t, 2, 3, 2, 3>(), "4-lane dup_lo on dup_hi");
-
             static_assert(is_cross_lane<0, 1, 0, 1>(), "dup-lo only → crossing");
             static_assert(is_cross_lane<2, 3, 2, 3>(), "dup-hi only → crossing");
             static_assert(is_cross_lane<0, 3, 3, 3>(), "one low + rest high → crossing");
             static_assert(!is_cross_lane<1, 0, 2, 3>(), "mixed low/high → no crossing");
             static_assert(!is_cross_lane<0, 1, 2, 3>(), "mixed low/high → no crossing");
-
             static_assert(no_duplicates_v<0, 1, 2, 3>(), "N=4: [0,1,2,3] → distinct");
             static_assert(!no_duplicates_v<0, 1, 2, 2>(), "N=4: [0,1,2,2] → dup");
-
             static_assert(no_duplicates_v<0, 1, 2, 3, 4, 5, 6, 7>(), "N=8: [0..7] → distinct");
             static_assert(!no_duplicates_v<0, 1, 2, 3, 4, 5, 6, 0>(), "N=8: last repeats 0");
-
+            static_assert(is_broadcast<std::uint32_t, 0, 0, 0, 0>(), "N=4: [0,0,0,0] → broadcast");
+            static_assert(!is_broadcast<std::uint32_t, 0, 1, 2, 3>(), "N=4: [0,1,2,3] → not broadcast");
+            static_assert(is_broadcast<std::uint32_t, 42, 42, 42>(), "All equal — broadcast");
+            static_assert(!is_broadcast<std::uint32_t, 42, 43>(), "Not equal — not broadcast");
+            static_assert(is_lane_reorder<std::uint32_t, 3, 2, 1, 0, 7, 6, 5, 4>(), "lower-half shuffle");
+            static_assert(!is_lane_reorder<std::uint32_t, 4, 5, 6, 7, 0, 1, 2, 3>(), "this crosses lanes");
+            static_assert(is_lane_reorder<std::uint32_t, 1, 0, 3, 2>(), "4-lane within-lanes");
+            static_assert(!is_lane_reorder<std::uint32_t, 0, 1, 1, 2>(), "has duplicates");
         } // namespace detail
     } // namespace kernel
 } // namespace xsimd

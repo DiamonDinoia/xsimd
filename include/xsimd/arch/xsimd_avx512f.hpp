@@ -2033,181 +2033,69 @@ namespace xsimd
             return bitwise_cast<int32_t>(swizzle(bitwise_cast<uint32_t>(self), mask, avx512f {}));
         }
 
-        namespace detail
-        {
-
-            // C++11-compliant constexpr: only one return, no if
-            template <uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t V4, uint32_t V5, uint32_t V6, uint32_t V7,
-                      uint32_t V8, uint32_t V9, uint32_t V10, uint32_t V11, uint32_t V12, uint32_t V13, uint32_t V14, uint32_t V15>
-            constexpr bool can_use_permute_ps_16() noexcept
-            {
-                return (V0 < 4) && (V1 < 4) && (V2 < 4) && (V3 < 4)
-                    && (V4 >= 4 && V4 < 8) && (V5 >= 4 && V5 < 8) && (V6 >= 4 && V6 < 8) && (V7 >= 4 && V7 < 8)
-                    && (V8 >= 8 && V8 < 12) && (V9 >= 8 && V9 < 12) && (V10 >= 8 && V10 < 12) && (V11 >= 8 && V11 < 12)
-                    && (V12 >= 12 && V12 < 16) && (V13 >= 12 && V13 < 16) && (V14 >= 12 && V14 < 16) && (V15 >= 12 && V15 < 16)
-                    && ((V4 & 3) == (V0 & 3)) && ((V5 & 3) == (V1 & 3)) && ((V6 & 3) == (V2 & 3)) && ((V7 & 3) == (V3 & 3))
-                    && ((V8 & 3) == (V0 & 3)) && ((V9 & 3) == (V1 & 3)) && ((V10 & 3) == (V2 & 3)) && ((V11 & 3) == (V3 & 3))
-                    && ((V12 & 3) == (V0 & 3)) && ((V13 & 3) == (V1 & 3)) && ((V14 & 3) == (V2 & 3)) && ((V15 & 3) == (V3 & 3));
-            }
-
-            template <uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t /*V4*/, uint32_t /*V5*/, uint32_t /*V6*/, uint32_t /*V7*/,
-                      uint32_t /*V8*/, uint32_t /*V9*/, uint32_t /*V10*/, uint32_t /*V11*/, uint32_t /*V12*/, uint32_t /*V13*/, uint32_t /*V14*/, uint32_t /*V15*/>
-            constexpr int shuffle_mask_16_to_8() noexcept
-            {
-                // Only depends on first lane
-                return ((V3 & 3) << 6) | ((V2 & 3) << 4) | ((V1 & 3) << 2) | (V0 & 3);
-            }
-
-            template <uint64_t V0, uint64_t V1, uint64_t V2, uint64_t V3, uint64_t V4, uint64_t V5, uint64_t V6, uint64_t V7>
-            constexpr bool can_use_permute_pd_8() noexcept
-            {
-                return (V0 < 2) && (V1 < 2)
-                    && (V2 >= 2 && V2 < 4) && (V3 >= 2 && V3 < 4)
-                    && (V4 >= 4 && V4 < 6) && (V5 >= 4 && V5 < 6)
-                    && (V6 >= 6 && V6 < 8) && (V7 >= 6 && V7 < 8)
-                    && ((V2 & 1) == (V0 & 1)) && ((V3 & 1) == (V1 & 1))
-                    && ((V4 & 1) == (V0 & 1)) && ((V5 & 1) == (V1 & 1))
-                    && ((V6 & 1) == (V0 & 1)) && ((V7 & 1) == (V1 & 1));
-            }
-
-            template <uint64_t V0, uint64_t V1, uint64_t /*V2*/, uint64_t /*V3*/, uint64_t /*V4*/, uint64_t /*V5*/, uint64_t /*V6*/, uint64_t /*V7*/>
-            constexpr int shuffle_mask_8_to_8() noexcept
-            {
-                // Only depends on first lane
-                return ((((V1 & 1) << 1) | (V0 & 1)) << 6) | ((((V1 & 1) << 1) | (V0 & 1)) << 4) | ((((V1 & 1) << 1) | (V0 & 1)) << 2) | (((V1 & 1) << 1) | (V0 & 1));
-            }
-
-        } // namespace detail
-
-        // -------- Swizzle (with XSIMD_IF_CONSTEXPR) --------
-
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t V4, uint32_t V5, uint32_t V6, uint32_t V7,
                   uint32_t V8, uint32_t V9, uint32_t V10, uint32_t V11, uint32_t V12, uint32_t V13, uint32_t V14, uint32_t V15>
-        XSIMD_INLINE batch<float, A> swizzle(batch<float, A> const& self, batch_constant<uint32_t, A, V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15> mask, requires_arch<avx512f>) noexcept
+        XSIMD_INLINE batch<float, A> swizzle(batch<float, A> const& self,
+                                             batch_constant<uint32_t, A, V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15> mask,
+                                             requires_arch<avx512f>) noexcept
         {
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
             {
                 return self;
             }
-            else
+            XSIMD_IF_CONSTEXPR(!detail::is_cross_lane(mask))
             {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_ps_16<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>())
+                constexpr int imm0 = detail::mod_shuffle(V0, V1, V2, V3);
+                constexpr int imm1 = detail::mod_shuffle(V4, V5, V6, V7);
+                constexpr int imm2 = detail::mod_shuffle(V8, V9, V10, V11);
+                constexpr int imm3 = detail::mod_shuffle(V12, V13, V14, V15);
+                XSIMD_IF_CONSTEXPR(imm0 == imm1 && imm0 == imm2 && imm0 == imm3)
                 {
-                    constexpr int imm = detail::shuffle_mask_16_to_8<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>();
-                    return _mm512_permute_ps(self, imm);
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
+                    return _mm512_permute_ps(self, imm0);
                 }
             }
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
-
         template <class A, uint64_t V0, uint64_t V1, uint64_t V2, uint64_t V3, uint64_t V4, uint64_t V5, uint64_t V6, uint64_t V7>
-        XSIMD_INLINE batch<double, A> swizzle(batch<double, A> const& self, batch_constant<uint64_t, A, V0, V1, V2, V3, V4, V5, V6, V7> mask, requires_arch<avx512f>) noexcept
+        XSIMD_INLINE batch<double, A> swizzle(batch<double, A> const& self,
+                                              batch_constant<uint64_t, A, V0, V1, V2, V3, V4, V5, V6, V7> mask,
+                                              requires_arch<avx512f>) noexcept
         {
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
             {
                 return self;
             }
-            else
+            XSIMD_IF_CONSTEXPR(!detail::is_cross_lane(mask))
             {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_pd_8<V0, V1, V2, V3, V4, V5, V6, V7>())
-                {
-                    constexpr int imm = detail::shuffle_mask_8_to_8<V0, V1, V2, V3, V4, V5, V6, V7>();
-                    return _mm512_permute_pd(self, imm);
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
-                }
+                constexpr auto imm = ((V0 & 1) << 0) | ((V1 & 1) << 1) | ((V2 & 1) << 2) | ((V3 & 1) << 3) | ((V4 & 1) << 4) | ((V5 & 1) << 5) | ((V6 & 1) << 6) | ((V7 & 1) << 7);
+                return _mm512_permute_pd(self, imm);
             }
+            // General case
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
 
-        template <class A, uint64_t V0, uint64_t V1, uint64_t V2, uint64_t V3, uint64_t V4, uint64_t V5, uint64_t V6, uint64_t V7>
-        XSIMD_INLINE batch<uint64_t, A> swizzle(batch<uint64_t, A> const& self, batch_constant<uint64_t, A, V0, V1, V2, V3, V4, V5, V6, V7> mask, requires_arch<avx512f>) noexcept
+        template <class A, uint64_t... Vs>
+        XSIMD_INLINE batch<uint64_t, A> swizzle(batch<uint64_t, A> const& self, batch_constant<uint64_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
-            {
-                return self;
-            }
-            else
-            {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_pd_8<V0, V1, V2, V3, V4, V5, V6, V7>())
-                {
-                    constexpr int imm = detail::shuffle_mask_8_to_8<V0, V1, V2, V3, V4, V5, V6, V7>();
-                    return _mm512_castpd_si512(_mm512_permute_pd(_mm512_castsi512_pd(self), imm));
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
-                }
-            }
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
 
-        template <class A, uint64_t V0, uint64_t V1, uint64_t V2, uint64_t V3, uint64_t V4, uint64_t V5, uint64_t V6, uint64_t V7>
-        XSIMD_INLINE batch<int64_t, A> swizzle(batch<int64_t, A> const& self, batch_constant<uint64_t, A, V0, V1, V2, V3, V4, V5, V6, V7> mask, requires_arch<avx512f>) noexcept
+        template <class A, uint64_t... Vs>
+        XSIMD_INLINE batch<int64_t, A> swizzle(batch<int64_t, A> const& self, batch_constant<uint64_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
-            {
-                return self;
-            }
-            else
-            {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_pd_8<V0, V1, V2, V3, V4, V5, V6, V7>())
-                {
-                    constexpr int imm = detail::shuffle_mask_8_to_8<V0, V1, V2, V3, V4, V5, V6, V7>();
-                    return _mm512_castpd_si512(_mm512_permute_pd(_mm512_castsi512_pd(self), imm));
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
-                }
-            }
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
 
-        template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t V4, uint32_t V5, uint32_t V6, uint32_t V7,
-                  uint32_t V8, uint32_t V9, uint32_t V10, uint32_t V11, uint32_t V12, uint32_t V13, uint32_t V14, uint32_t V15>
-        XSIMD_INLINE batch<uint32_t, A> swizzle(batch<uint32_t, A> const& self, batch_constant<uint32_t, A, V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15> mask, requires_arch<avx512f>) noexcept
+        template <class A, uint32_t... Vs>
+        XSIMD_INLINE batch<uint32_t, A> swizzle(batch<uint32_t, A> const& self, batch_constant<uint32_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
-            {
-                return self;
-            }
-            else
-            {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_ps_16<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>())
-                {
-                    constexpr int imm = detail::shuffle_mask_16_to_8<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>();
-                    return _mm512_castps_si512(_mm512_permute_ps(_mm512_castsi512_ps(self), imm));
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
-                }
-            }
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
 
-        template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t V4, uint32_t V5, uint32_t V6, uint32_t V7,
-                  uint32_t V8, uint32_t V9, uint32_t V10, uint32_t V11, uint32_t V12, uint32_t V13, uint32_t V14, uint32_t V15>
-        XSIMD_INLINE batch<int32_t, A> swizzle(batch<int32_t, A> const& self, batch_constant<uint32_t, A, V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15> mask, requires_arch<avx512f>) noexcept
+        template <class A, uint32_t... Vs>
+        XSIMD_INLINE batch<int32_t, A> swizzle(batch<int32_t, A> const& self, batch_constant<uint32_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            XSIMD_IF_CONSTEXPR(detail::is_identity(mask))
-            {
-                return self;
-            }
-            else
-            {
-                XSIMD_IF_CONSTEXPR(detail::can_use_permute_ps_16<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>())
-                {
-                    constexpr int imm = detail::shuffle_mask_16_to_8<V0, V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15>();
-                    return _mm512_castps_si512(_mm512_permute_ps(_mm512_castsi512_ps(self), imm));
-                }
-                else
-                {
-                    return swizzle(self, mask.as_batch(), avx512f {});
-                }
-            }
+            return swizzle(self, mask.as_batch(), avx512f {});
         }
 
         namespace detail
