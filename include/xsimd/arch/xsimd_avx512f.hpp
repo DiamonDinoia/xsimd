@@ -2070,6 +2070,15 @@ namespace xsimd
                 constexpr auto imm = ((V0 & 1) << 0) | ((V1 & 1) << 1) | ((V2 & 1) << 2) | ((V3 & 1) << 3) | ((V4 & 1) << 4) | ((V5 & 1) << 5) | ((V6 & 1) << 6) | ((V7 & 1) << 7);
                 return _mm512_permute_pd(self, imm);
             }
+            constexpr bool dup_lo = detail::is_dup_lo(mask);
+            constexpr bool dup_hi = detail::is_dup_hi(mask);
+            XSIMD_IF_CONSTEXPR(dup_lo || dup_hi)
+            {
+                const batch<double, avx2> half = _mm512_extractf64x4_pd(self, dup_lo ? 0 : 1);
+                constexpr typename std::conditional<dup_lo, batch_constant<uint64_t, avx2, V0 % 4, V1 % 4, V2 % 4, V3 % 4>,
+                                                    batch_constant<uint64_t, avx2, V4 % 4, V5 % 4, V6 % 4, V7 % 4>>::type half_mask {};
+                return _mm512_broadcast_f64x4(swizzle(half, half_mask, avx2 {}));
+            }
             // General case
             return swizzle(self, mask.as_batch(), avx512f {});
         }

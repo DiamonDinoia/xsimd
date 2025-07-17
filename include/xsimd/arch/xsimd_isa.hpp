@@ -76,6 +76,14 @@
 #include "./xsimd_avx512bw.hpp"
 #endif
 
+#if XSIMD_WITH_AVX512CD
+#include "./xsimd_avx512cd.hpp"
+#endif
+
+#if XSIMD_WITH_AVX512DQ
+#include "./xsimd_avx512dq.hpp"
+#endif
+
 #if XSIMD_WITH_AVX512ER
 #include "./xsimd_avx512er.hpp"
 #endif
