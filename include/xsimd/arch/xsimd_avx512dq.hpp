@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 #ifndef XSIMD_AVX512_DQHPP
-#define XSIMD_AVX512_D_HPP
+#define XSIMD_AVX512_DQHPP
 
 #include "../types/xsimd_avx512dq_register.hpp"
 
