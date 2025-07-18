@@ -102,9 +102,9 @@ jobs:
           fi
           if [[ '${{ matrix.sys.flags }}' =~ ^x86-64(-v[234])?$ ]]; then
             CMAKE_EXTRA_ARGS="$CMAKE_EXTRA_ARGS -DTARGET_ARCH=${{ matrix.sys.flags }}"
+          else
+            CMAKE_EXTRA_ARGS="$CMAKE_EXTRA_ARGS -DXSIMD_ENABLE_WERROR=ON"
           fi
-          CMAKE_EXTRA_ARGS="$CMAKE_EXTRA_ARGS -DXSIMD_ENABLE_WERROR=ON"
-
           # Cheap way of spotting uninitialized read
           CXX_FLAGS="$CXX_FLAGS -ftrivial-auto-var-init=pattern"
 
