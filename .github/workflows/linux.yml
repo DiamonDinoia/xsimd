@@ -65,7 +65,7 @@ jobs:
         with:
           environment-file: environment.yml
       - name: Setup SDE
-        if: startswith(matrix.sys.flags, 'avx512')
+        if: startsWith(matrix.sys.flags, 'avx512') || matrix.sys.flags == 'x86-64-v4'
         run: sh install_sde.sh
       - name: Configure build
         env:
