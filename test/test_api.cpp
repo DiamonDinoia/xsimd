@@ -49,7 +49,7 @@ struct xsimd_api_test
     float_vector_type f_vec;
     double_vector_type d_vec;
 
-    array_type expected {};
+    array_type expected;
 
     xsimd_api_test()
     {
@@ -121,7 +121,9 @@ private:
     void test_load_impl(const V& v, const std::string& name)
     {
         batch_type b;
-        std::copy(v.cbegin(), v.cend(), expected.begin());
+        std::transform(v.begin(), v.end(), expected.begin(),
+                       [](typename V::value_type const elem)
+                       { return static_cast<value_type>(elem); });
 
         b = batch_type::load(v.data(), xsimd::unaligned_mode());
         INFO(name, " unaligned");
