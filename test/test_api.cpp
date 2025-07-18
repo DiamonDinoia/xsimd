@@ -49,7 +49,7 @@ struct xsimd_api_test
     float_vector_type f_vec;
     double_vector_type d_vec;
 
-    array_type expected;
+    array_type expected {};
 
     xsimd_api_test()
     {
