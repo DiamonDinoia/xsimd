@@ -1644,35 +1644,33 @@ namespace xsimd
         {
             return _mm_sub_pd(self, other);
         }
+
+        // ========================= float (4×32) =========================
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3>
         XSIMD_INLINE batch<float, A> swizzle(
             batch<float, A> const& self,
             batch_constant<uint32_t, A, V0, V1, V2, V3> mask,
             requires_arch<sse2>) noexcept
         {
-            /* identity ― nothing to do */
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
 
-            /* broadcast  (x,x,x,x)   →  single SHUFPS  (FP domain, 1 uop) */
+            // 1-µop: broadcast (x,x,x,x) via PSHUFD
             XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
             {
-                /* imm = V0 | V0<<2 | V0<<4 | V0<<6  (same as master) */
-                constexpr uint32_t imm = V0 | (V0 << 2) | (V0 << 4) | (V0 << 6);
-                return _mm_shuffle_ps(self, self, imm);
+                constexpr uint32_t imm = (V0) | (V0 << 2) | (V0 << 4) | (V0 << 6);
+                return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(self), imm));
             }
 
-            /* dup-lo  (a,b,a,b)  →  MOVLHPS   (1 uop) */
+            // 1-µop: duplicate low/high 64-bit half
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_movelh_ps(self, self); }
-
-            /* dup-hi  (c,d,c,d)  →  MOVHLPS   (1 uop) */
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_movehl_ps(self, self); }
 
-            /* generic shuffle → SHUFPS */
+            // General case (correct & fast): PSHUFD
             constexpr uint32_t imm = detail::shuffle(V0, V1, V2, V3);
-            return _mm_shuffle_ps(self, self, imm);
+            return _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(self), imm));
         }
 
-        /*──────── double (2 × 64-bit) ──────*/
+        // ======================== double (2×64) ========================
         template <class A, uint64_t V0, uint64_t V1>
         XSIMD_INLINE batch<double, A> swizzle(
             batch<double, A> const& self,
@@ -1680,23 +1678,15 @@ namespace xsimd
             requires_arch<sse2>) noexcept
         {
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
-
-            /* dup-lo / dup-hi keep using the 1-uop UNPCK* variants */
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_unpacklo_pd(self, self); }
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_unpackhi_pd(self, self); }
 
-            /* (optional) broadcast when both lanes equal */
-            XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
-            {
-                constexpr uint32_t imm = 0; // 00 replicates lane 0, 11 replicates lane 1
-                return _mm_shuffle_pd(self, self, imm);
-            }
-
+            // General 2-lane case: SHUFPD is fine (can pick either lane into either output)
             constexpr uint32_t imm = detail::shuffle(V0, V1);
             return _mm_shuffle_pd(self, self, imm);
         }
 
-        /*──────── int32_t (4 × 32-bit) ──────*/
+        // ======================= int32_t (4×32) =======================
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3>
         XSIMD_INLINE batch<int32_t, A> swizzle(
             batch<int32_t, A> const& self,
@@ -1705,19 +1695,23 @@ namespace xsimd
         {
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
 
+            // 1-µop: broadcast
             XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
             {
-                constexpr uint32_t imm = V0 | (V0 << 2) | (V0 << 4) | (V0 << 6);
+                constexpr uint32_t imm = (V0) | (V0 << 2) | (V0 << 4) | (V0 << 6);
                 return _mm_shuffle_epi32(self, imm);
             }
+
+            // 1-µop: duplicate low/high half
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_unpacklo_epi64(self, self); }
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_unpackhi_epi64(self, self); }
 
+            // General: PSHUFD
             constexpr uint32_t imm = detail::shuffle(V0, V1, V2, V3);
             return _mm_shuffle_epi32(self, imm);
         }
 
-        /*──────── int64_t (2 × 64-bit) ──────*/
+        // ======================= int64_t (2×64) =======================
         template <class A, uint64_t V0, uint64_t V1>
         XSIMD_INLINE batch<int64_t, A> swizzle(
             batch<int64_t, A> const& self,
@@ -1728,20 +1722,19 @@ namespace xsimd
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_unpacklo_epi64(self, self); }
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_unpackhi_epi64(self, self); }
 
-            constexpr uint32_t imm = detail::shuffle(2 * V0, 2 * V0 + 1,
-                                                     2 * V1, 2 * V1 + 1);
+            // General: expand to 32-bit indices and use PSHUFD
+            constexpr uint32_t imm = detail::shuffle(2 * V0, 2 * V0 + 1, 2 * V1, 2 * V1 + 1);
             return _mm_shuffle_epi32(self, imm);
         }
 
-        /*──────── unsigned aliases via bitwise_cast ───*/
+        // ================= unsigned: forward via bitwise_cast<T> =================
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3>
         XSIMD_INLINE batch<uint32_t, A> swizzle(
             batch<uint32_t, A> const& self,
             batch_constant<uint32_t, A, V0, V1, V2, V3> mask,
             requires_arch<sse2>) noexcept
         {
-            return bitwise_cast<uint32_t>(
-                swizzle(bitwise_cast<int32_t>(self), mask, sse2 {}));
+            return bitwise_cast<uint32_t>(swizzle(bitwise_cast<int32_t>(self), mask, sse2 {}));
         }
 
         template <class A, uint64_t V0, uint64_t V1>
@@ -1750,8 +1743,7 @@ namespace xsimd
             batch_constant<uint64_t, A, V0, V1> mask,
             requires_arch<sse2>) noexcept
         {
-            return bitwise_cast<uint64_t>(
-                swizzle(bitwise_cast<int64_t>(self), mask, sse2 {}));
+            return bitwise_cast<uint64_t>(swizzle(bitwise_cast<int64_t>(self), mask, sse2 {}));
         }
 
         template <class A, uint16_t V0, uint16_t V1, uint16_t V2, uint16_t V3, uint16_t V4, uint16_t V5, uint16_t V6, uint16_t V7>
