@@ -1644,32 +1644,35 @@ namespace xsimd
         {
             return _mm_sub_pd(self, other);
         }
-
-        // swizzle
-        /*──────── float (4 × 32-bit) ────────*/
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3>
         XSIMD_INLINE batch<float, A> swizzle(
             batch<float, A> const& self,
             batch_constant<uint32_t, A, V0, V1, V2, V3> mask,
             requires_arch<sse2>) noexcept
         {
+            /* identity ― nothing to do */
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
 
-            /* broadcast (x,x,x,x) */
+            /* broadcast  (x,x,x,x)   →  single SHUFPS  (FP domain, 1 uop) */
             XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
             {
+                /* imm = V0 | V0<<2 | V0<<4 | V0<<6  (same as master) */
                 constexpr uint32_t imm = V0 | (V0 << 2) | (V0 << 4) | (V0 << 6);
-                return _mm_castsi128_ps(
-                    _mm_shuffle_epi32(_mm_castps_si128(self), imm));
+                return _mm_shuffle_ps(self, self, imm);
             }
+
+            /* dup-lo  (a,b,a,b)  →  MOVLHPS   (1 uop) */
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_movelh_ps(self, self); }
+
+            /* dup-hi  (c,d,c,d)  →  MOVHLPS   (1 uop) */
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_movehl_ps(self, self); }
 
+            /* generic shuffle → SHUFPS */
             constexpr uint32_t imm = detail::shuffle(V0, V1, V2, V3);
             return _mm_shuffle_ps(self, self, imm);
         }
 
-        /*──────── double (2 × 64-bit) ───────*/
+        /*──────── double (2 × 64-bit) ──────*/
         template <class A, uint64_t V0, uint64_t V1>
         XSIMD_INLINE batch<double, A> swizzle(
             batch<double, A> const& self,
@@ -1677,8 +1680,17 @@ namespace xsimd
             requires_arch<sse2>) noexcept
         {
             XSIMD_IF_CONSTEXPR(detail::is_identity(mask)) { return self; }
+
+            /* dup-lo / dup-hi keep using the 1-uop UNPCK* variants */
             XSIMD_IF_CONSTEXPR(detail::is_dup_lo(mask)) { return _mm_unpacklo_pd(self, self); }
             XSIMD_IF_CONSTEXPR(detail::is_dup_hi(mask)) { return _mm_unpackhi_pd(self, self); }
+
+            /* (optional) broadcast when both lanes equal */
+            XSIMD_IF_CONSTEXPR(detail::is_broadcast(mask))
+            {
+                constexpr uint32_t imm = 0; // 00 replicates lane 0, 11 replicates lane 1
+                return _mm_shuffle_pd(self, self, imm);
+            }
 
             constexpr uint32_t imm = detail::shuffle(V0, V1);
             return _mm_shuffle_pd(self, self, imm);
