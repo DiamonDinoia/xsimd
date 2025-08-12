@@ -55,7 +55,8 @@ namespace xsimd
             XSIMD_INLINE constexpr bool is_cross_lane(batch_constant<T, A, Vs...>) noexcept;
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool no_duplicates(batch_constant<T, A, Vs...>) noexcept;
-
+            template <typename T, class A, T... Vs>
+            XSIMD_INLINE constexpr bool is_broadcast(batch_constant<T, A, Vs...>) noexcept;
         }
     }
 }

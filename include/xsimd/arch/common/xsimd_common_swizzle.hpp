@@ -136,6 +136,20 @@ namespace xsimd
                 // forward to your existing no_duplicates_impl
                 return no_duplicates_impl<0, sizeof...(Vs), uint32_t, Vs...>();
             }
+            template <typename T, T First, T... Rest>
+            struct all_equal_impl;
+
+            template <typename T, T First>
+            struct all_equal_impl<T, First>
+            {
+                static constexpr bool value = true;
+            };
+
+            template <typename T, T First, T Second, T... Rest>
+            struct all_equal_impl<T, First, Second, Rest...>
+            {
+                static constexpr bool value = (First == Second) && all_equal_impl<T, First, Rest...>::value;
+            };
             template <uint32_t... Vs>
             XSIMD_INLINE constexpr bool is_cross_lane() noexcept
             {
@@ -166,7 +180,8 @@ namespace xsimd
             XSIMD_INLINE constexpr bool is_cross_lane(batch_constant<T, A, Vs...>) noexcept { return detail::is_cross_lane<Vs...>(); }
             template <typename T, class A, T... Vs>
             XSIMD_INLINE constexpr bool no_duplicates(batch_constant<T, A, Vs...>) noexcept { return no_duplicates_impl<0, sizeof...(Vs), T, Vs...>(); }
-
+            template <typename T, class A, T... Vs>
+            XSIMD_INLINE constexpr bool is_broadcast(batch_constant<T, A, Vs...>) noexcept { return all_equal_impl<T, Vs...>::value; }
         } // namespace detail
     } // namespace kernel
 } // namespace xsimd
