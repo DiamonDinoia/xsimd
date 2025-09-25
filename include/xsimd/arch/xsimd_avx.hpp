@@ -873,6 +873,18 @@ namespace xsimd
                                                  aligned_mode,
                                                  requires_arch<avx>) noexcept
         {
+            int mask_bits = _mm256_movemask_ps(mask.data);
+            if(mask_bits == 0x0F)
+            {
+                __m128i mask128 = _mm_castps_si128(_mm256_castps256_ps128(mask.data));
+                return _mm256_zextps128_ps256(_mm_maskload_ps(mem, mask128));
+            }
+            else if(mask_bits == 0xF0)
+            {
+                __m128i mask128 = _mm_castps_si128(_mm256_extractf128_ps(mask.data, 1));
+                __m128 hi = _mm_maskload_ps(mem + 4, mask128);
+                return _mm256_insertf128_ps(_mm256_setzero_ps(), hi, 1);
+            }
             return _mm256_maskload_ps(mem, _mm256_castps_si256(mask.data));
         }
 
@@ -883,6 +895,18 @@ namespace xsimd
                                                  unaligned_mode,
                                                  requires_arch<avx>) noexcept
         {
+            int mask_bits = _mm256_movemask_ps(mask.data);
+            if(mask_bits == 0x0F)
+            {
+                __m128i mask128 = _mm_castps_si128(_mm256_castps256_ps128(mask.data));
+                return _mm256_zextps128_ps256(_mm_maskload_ps(mem, mask128));
+            }
+            else if(mask_bits == 0xF0)
+            {
+                __m128i mask128 = _mm_castps_si128(_mm256_extractf128_ps(mask.data, 1));
+                __m128 hi = _mm_maskload_ps(mem + 4, mask128);
+                return _mm256_insertf128_ps(_mm256_setzero_ps(), hi, 1);
+            }
             return _mm256_maskload_ps(mem, _mm256_castps_si256(mask.data));
         }
 
@@ -939,6 +963,18 @@ namespace xsimd
                                                   aligned_mode,
                                                   requires_arch<avx>) noexcept
         {
+            int mask_bits = _mm256_movemask_pd(mask.data);
+            if(mask_bits == 0x3)
+            {
+                __m128i mask128 = _mm_castpd_si128(_mm256_castpd256_pd128(mask.data));
+                return _mm256_zextpd128_pd256(_mm_maskload_pd(mem, mask128));
+            }
+            else if(mask_bits == 0xC)
+            {
+                __m128i mask128 = _mm_castpd_si128(_mm256_extractf128_pd(mask.data, 1));
+                __m128d hi = _mm_maskload_pd(mem + 2, mask128);
+                return _mm256_insertf128_pd(_mm256_setzero_pd(), hi, 1);
+            }
             return _mm256_maskload_pd(mem, _mm256_castpd_si256(mask.data));
         }
 
@@ -949,6 +985,18 @@ namespace xsimd
                                                   unaligned_mode,
                                                   requires_arch<avx>) noexcept
         {
+            int mask_bits = _mm256_movemask_pd(mask.data);
+            if(mask_bits == 0x3)
+            {
+                __m128i mask128 = _mm_castpd_si128(_mm256_castpd256_pd128(mask.data));
+                return _mm256_zextpd128_pd256(_mm_maskload_pd(mem, mask128));
+            }
+            else if(mask_bits == 0xC)
+            {
+                __m128i mask128 = _mm_castpd_si128(_mm256_extractf128_pd(mask.data, 1));
+                __m128d hi = _mm_maskload_pd(mem + 2, mask128);
+                return _mm256_insertf128_pd(_mm256_setzero_pd(), hi, 1);
+            }
             return _mm256_maskload_pd(mem, _mm256_castpd_si256(mask.data));
         }
 
