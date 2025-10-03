@@ -1325,8 +1325,8 @@ namespace xsimd
                                                  aligned_mode,
                                                  requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 8)
             {
                 return _mm512_zextps256_ps512(_mm256_load_ps(mem));
@@ -1348,8 +1348,8 @@ namespace xsimd
                                                  unaligned_mode,
                                                  requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 8)
             {
                 return _mm512_zextps256_ps512(_mm256_loadu_ps(mem));
@@ -1391,8 +1391,8 @@ namespace xsimd
                                                   aligned_mode,
                                                   requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 4)
             {
                 return _mm512_zextpd256_pd512(_mm256_load_pd(mem));
@@ -1414,8 +1414,8 @@ namespace xsimd
                                                   unaligned_mode,
                                                   requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 4)
             {
                 return _mm512_zextpd256_pd512(_mm256_loadu_pd(mem));
@@ -1492,8 +1492,8 @@ namespace xsimd
                                        aligned_mode,
                                        requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 8)
             {
                 _mm256_store_ps(mem, _mm512_castps512_ps256(src));
@@ -1515,8 +1515,8 @@ namespace xsimd
                                        unaligned_mode,
                                        requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 8)
             {
                 _mm256_storeu_ps(mem, _mm512_castps512_ps256(src));
@@ -1558,8 +1558,8 @@ namespace xsimd
                                        aligned_mode,
                                        requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 4)
             {
                 _mm256_store_pd(mem, _mm512_castpd512_pd256(src));
@@ -1581,8 +1581,8 @@ namespace xsimd
                                        unaligned_mode,
                                        requires_arch<avx512f>) noexcept
         {
-            constexpr std::size_t n = detail::first_set_count(mask);
-            constexpr std::size_t l = detail::last_set_count(mask);
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
             XSIMD_IF_CONSTEXPR(n == 4)
             {
                 _mm256_storeu_pd(mem, _mm512_castpd512_pd256(src));

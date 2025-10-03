@@ -24,6 +24,307 @@ namespace xsimd
     {
         using namespace types;
 
+        // masked_load forwarders for AVX-only types
+        template <class A>
+        XSIMD_INLINE batch<float, A> masked_load(float const* mem,
+                                                 batch_bool<float, A> const& mask,
+                                                 convert<float>,
+                                                 aligned_mode,
+                                                 requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<float> {}, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE batch<float, A> masked_load(float const* mem,
+                                                 batch_bool<float, A> const& mask,
+                                                 convert<float>,
+                                                 unaligned_mode,
+                                                 requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<float> {}, unaligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> masked_load(double const* mem,
+                                                  batch_bool<double, A> const& mask,
+                                                  convert<double>,
+                                                  aligned_mode,
+                                                  requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<double> {}, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> masked_load(double const* mem,
+                                                  batch_bool<double, A> const& mask,
+                                                  convert<double>,
+                                                  unaligned_mode,
+                                                  requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<double> {}, unaligned_mode {}, requires_arch<avx> {});
+        }
+
+        // masked_store forwarders for AVX-only types
+        template <class A>
+        XSIMD_INLINE void masked_store(float* mem,
+                                       batch<float, A> const& src,
+                                       batch_bool<float, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(float* mem,
+                                       batch<float, A> const& src,
+                                       batch_bool<float, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, unaligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(double* mem,
+                                       batch<double, A> const& src,
+                                       batch_bool<double, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(double* mem,
+                                       batch<double, A> const& src,
+                                       batch_bool<double, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, unaligned_mode {}, requires_arch<avx> {});
+        }
+
+        // masked_load runtime (AVX2) for int32/int64
+        template <class A>
+        XSIMD_INLINE batch<int32_t, A> masked_load(int32_t const* mem,
+                                                   batch_bool<int32_t, A> const& mask,
+                                                   convert<int32_t>,
+                                                   aligned_mode,
+                                                   requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi32(mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<int32_t, A> masked_load(int32_t const* mem,
+                                                   batch_bool<int32_t, A> const& mask,
+                                                   convert<int32_t>,
+                                                   unaligned_mode,
+                                                   requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi32(mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<uint32_t, A> masked_load(uint32_t const* mem,
+                                                    batch_bool<uint32_t, A> const& mask,
+                                                    convert<uint32_t>,
+                                                    aligned_mode,
+                                                    requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi32((int const*)mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<uint32_t, A> masked_load(uint32_t const* mem,
+                                                    batch_bool<uint32_t, A> const& mask,
+                                                    convert<uint32_t>,
+                                                    unaligned_mode,
+                                                    requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi32((int const*)mem, mask.data);
+        }
+
+        template <class A>
+        XSIMD_INLINE batch<int64_t, A> masked_load(int64_t const* mem,
+                                                   batch_bool<int64_t, A> const& mask,
+                                                   convert<int64_t>,
+                                                   aligned_mode,
+                                                   requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi64(mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<int64_t, A> masked_load(int64_t const* mem,
+                                                   batch_bool<int64_t, A> const& mask,
+                                                   convert<int64_t>,
+                                                   unaligned_mode,
+                                                   requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi64(mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<uint64_t, A> masked_load(uint64_t const* mem,
+                                                    batch_bool<uint64_t, A> const& mask,
+                                                    convert<uint64_t>,
+                                                    aligned_mode,
+                                                    requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi64((long long const*)mem, mask.data);
+        }
+        template <class A>
+        XSIMD_INLINE batch<uint64_t, A> masked_load(uint64_t const* mem,
+                                                    batch_bool<uint64_t, A> const& mask,
+                                                    convert<uint64_t>,
+                                                    unaligned_mode,
+                                                    requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_epi64((long long const*)mem, mask.data);
+        }
+
+        // masked_store runtime (AVX2) for int32/int64
+        template <class A>
+        XSIMD_INLINE void masked_store(int32_t* mem,
+                                       batch<int32_t, A> const& src,
+                                       batch_bool<int32_t, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi32(mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(int32_t* mem,
+                                       batch<int32_t, A> const& src,
+                                       batch_bool<int32_t, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi32(mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(uint32_t* mem,
+                                       batch<uint32_t, A> const& src,
+                                       batch_bool<uint32_t, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi32((int*)mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(uint32_t* mem,
+                                       batch<uint32_t, A> const& src,
+                                       batch_bool<uint32_t, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi32((int*)mem, mask.data, src);
+        }
+
+        template <class A>
+        XSIMD_INLINE void masked_store(int64_t* mem,
+                                       batch<int64_t, A> const& src,
+                                       batch_bool<int64_t, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi64(mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(int64_t* mem,
+                                       batch<int64_t, A> const& src,
+                                       batch_bool<int64_t, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi64(mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(uint64_t* mem,
+                                       batch<uint64_t, A> const& src,
+                                       batch_bool<uint64_t, A> const& mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi64((long long*)mem, mask.data, src);
+        }
+        template <class A>
+        XSIMD_INLINE void masked_store(uint64_t* mem,
+                                       batch<uint64_t, A> const& src,
+                                       batch_bool<uint64_t, A> const& mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_epi64((long long*)mem, mask.data, src);
+        }
+
+        // compile-time masked_load/store forwarders for float/double
+        template <class A, bool... Values>
+        XSIMD_INLINE batch<float, A> masked_load(float const* mem,
+                                                 batch_bool_constant<float, A, Values...> mask,
+                                                 convert<float>,
+                                                 aligned_mode,
+                                                 requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<float> {}, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE batch<float, A> masked_load(float const* mem,
+                                                 batch_bool_constant<float, A, Values...> mask,
+                                                 convert<float>,
+                                                 unaligned_mode,
+                                                 requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<float> {}, unaligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE batch<double, A> masked_load(double const* mem,
+                                                  batch_bool_constant<double, A, Values...> mask,
+                                                  convert<double>,
+                                                  aligned_mode,
+                                                  requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<double> {}, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE batch<double, A> masked_load(double const* mem,
+                                                  batch_bool_constant<double, A, Values...> mask,
+                                                  convert<double>,
+                                                  unaligned_mode,
+                                                  requires_arch<avx2>) noexcept
+        {
+            return masked_load<avx>(mem, mask, convert<double> {}, unaligned_mode {}, requires_arch<avx> {});
+        }
+
+        template <class A, bool... Values>
+        XSIMD_INLINE void masked_store(float* mem,
+                                       batch<float, A> const& src,
+                                       batch_bool_constant<float, A, Values...> mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE void masked_store(float* mem,
+                                       batch<float, A> const& src,
+                                       batch_bool_constant<float, A, Values...> mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, unaligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE void masked_store(double* mem,
+                                       batch<double, A> const& src,
+                                       batch_bool_constant<double, A, Values...> mask,
+                                       aligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, aligned_mode {}, requires_arch<avx> {});
+        }
+        template <class A, bool... Values>
+        XSIMD_INLINE void masked_store(double* mem,
+                                       batch<double, A> const& src,
+                                       batch_bool_constant<double, A, Values...> mask,
+                                       unaligned_mode,
+                                       requires_arch<avx2>) noexcept
+        {
+            masked_store<avx>(mem, src, mask, unaligned_mode {}, requires_arch<avx> {});
+        }
+
         // abs
         template <class A, class T, class = typename std::enable_if<std::is_integral<T>::value, void>::type>
         XSIMD_INLINE batch<T, A> abs(batch<T, A> const& self, requires_arch<avx2>) noexcept

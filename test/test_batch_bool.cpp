@@ -154,6 +154,62 @@ namespace xsimd
 
 }
 
+// Compile-time check helpers for batch_bool_constant masks
+template <class B, class Enable = void>
+struct xsimd_ct_mask_checker;
+
+// Small masks: safe to compare numeric masks at compile time
+template <class B>
+struct xsimd_ct_mask_checker<B, typename std::enable_if<(B::size <= 31)>::type>
+{
+    struct ct_false
+    {
+        static constexpr bool get(std::size_t, std::size_t) { return false; }
+    };
+    struct ct_true
+    {
+        static constexpr bool get(std::size_t, std::size_t) { return true; }
+    };
+    struct ct_prefix1
+    {
+        static constexpr bool get(std::size_t i, std::size_t) { return i < 1; }
+    };
+    struct ct_suffix1
+    {
+        static constexpr bool get(std::size_t i, std::size_t n) { return i >= (n - 1); }
+    };
+    struct ct_ends
+    {
+        static constexpr bool get(std::size_t i, std::size_t n) { return (i < 1) || (i >= (n - 1)); }
+    };
+
+    static void run()
+    {
+        using value_type = typename B::value_type;
+        using arch_type = typename B::arch_type;
+        constexpr auto m_zero = xsimd::make_batch_bool_constant<value_type, ct_false, arch_type>();
+        constexpr auto m_one = xsimd::make_batch_bool_constant<value_type, ct_true, arch_type>();
+        constexpr auto m_prefix = xsimd::make_batch_bool_constant<value_type, ct_prefix1, arch_type>();
+        constexpr auto m_suffix = xsimd::make_batch_bool_constant<value_type, ct_suffix1, arch_type>();
+        constexpr auto m_ends = xsimd::make_batch_bool_constant<value_type, ct_ends, arch_type>();
+
+        static_assert(decltype(m_zero | m_one)::mask() == decltype(m_one)::mask(), "0|1 == 1");
+        static_assert(decltype(m_zero & m_one)::mask() == decltype(m_zero)::mask(), "0&1 == 0");
+        static_assert(decltype(m_zero ^ m_zero)::mask() == decltype(m_zero)::mask(), "0^0 == 0");
+        static_assert(decltype(m_one ^ m_one)::mask() == decltype(m_zero)::mask(), "1^1 == 0");
+
+        static_assert(decltype(m_prefix | m_suffix)::mask() == decltype(m_ends)::mask(), "prefix|suffix == ends");
+        static_assert(B::size == 1 || decltype(m_prefix & m_suffix)::mask() == decltype(m_zero)::mask(), "prefix&suffix == 0 when size>1");
+    }
+};
+
+// Large masks: avoid calling mask() in constant expressions
+template <class B>
+struct xsimd_ct_mask_checker<B, typename std::enable_if<(B::size > 31)>::type>
+{
+    static void run() {}
+};
+
 template <class B>
 struct batch_bool_test
 {
@@ -504,5 +560,91 @@ TEST_CASE_TEMPLATE("[xsimd batch bool]", B, BATCH_TYPES)
     SUBCASE("count") { Test.test_count(); }
 
     SUBCASE("eq neq") { Test.test_comparison(); }
+
+    SUBCASE("mask utils (compile-time)")
+    {
+        using value_type = typename B::value_type;
+        using arch_type = typename B::arch_type;
+        // zeros / ones
+        struct ct_false
+        {
+            static constexpr bool get(std::size_t, std::size_t) { return false; }
+        };
+        struct ct_true
+        {
+            static constexpr bool get(std::size_t, std::size_t) { return true; }
+        };
+        // prefix: leading ones from LSB side (here 1 one, then zeros)
+        struct ct_prefix1
+        {
+            static constexpr bool get(std::size_t i, std::size_t) { return i < 1; }
+        };
+        // suffix: trailing one at MSB side (only last bit set)
+        struct ct_suffix1
+        {
+            static constexpr bool get(std::size_t i, std::size_t n) { return i >= (n - 1); }
+        };
+        // ends: first and last bit set
+        struct ct_ends
+        {
+            static constexpr bool get(std::size_t i, std::size_t n) { return (i < 1) || (i >= (n - 1)); }
+        };
+
+        // Invoke global helper specialized by batch size
+        xsimd_ct_mask_checker<B>::run();
+        (void)Test; // silence unused variable warning in some builds
+    }
+    SUBCASE("mask utils (runtime)")
+    {
+        auto bool_g = xsimd::get_bool<typename B::batch_bool_type> {};
+        typedef typename B::batch_bool_type BB;
+        const std::size_t N = BB::size;
+
+        auto check_mask = [&](BB const& m, const char* label)
+        {
+            // expected popcount via existing count()
+            std::size_t expected_pop = xsimd::count(m);
+            CHECK_EQ(m.popcount(), expected_pop);
+
+            // expected is_all_zeros / is_all_ones
+            CHECK_EQ(m.is_all_zeros(), expected_pop == 0);
+            CHECK_EQ(m.is_all_ones(), expected_pop == N);
+
+            // build a bool array to derive prefix/suffix and indices
+            std::array<bool, N> bits;
+            m.store_unaligned(bits.data());
+
+            // countr_one (trailing ones from LSB)
+            std::size_t cto = 0;
+            for (std::size_t i = 0; i < N; ++i) { if (bits[i]) ++cto; else break; }
+            CHECK_EQ(m.countr_one(), cto);
+
+            // countl_one (leading ones from MSB)
+            std::size_t clo = 0;
+            for (std::size_t i = 0; i < N; ++i) { std::size_t b = N - 1 - i; if (bits[b]) ++clo; else break; }
+            CHECK_EQ(m.countl_one(), clo);
+
+            // first_one_index / last_one_index
+            std::size_t first = N, last = N;
+            for (std::size_t i = 0; i < N; ++i) { if (bits[i]) { first = i; break; } }
+            for (std::size_t i = 0; i < N; ++i) { std::size_t b = N - 1 - i; if (bits[b]) { last = b; break; } }
+            CHECK_EQ(m.first_one_index(), first);
+            CHECK_EQ(m.last_one_index(), last);
+
+            // prefix/suffix ones
+            bool is_prefix = true; for (std::size_t i = 0; i < cto; ++i) if (!bits[i]) is_prefix = false; for (std::size_t i = cto; i < N; ++i) if (bits[i]) is_prefix = false;
+            bool is_suffix = true; for (std::size_t i = 0; i < N - clo; ++i) if (bits[i]) is_suffix = false; for (std::size_t i = N - clo; i < N; ++i) if (!bits[i]) is_suffix = false;
+            CHECK_EQ(m.is_prefix_ones(), is_prefix);
+            CHECK_EQ(m.is_suffix_ones(), is_suffix);
+
+            (void)label; // silence unused param in some builds
+        };
+
+        check_mask(bool_g.all_false, "all_false");
+        check_mask(bool_g.all_true,  "all_true");
+        check_mask(bool_g.half,      "half");
+        check_mask(bool_g.ihalf,     "ihalf");
+        check_mask(bool_g.interspersed, "interspersed");
+    }
 }
 #endif

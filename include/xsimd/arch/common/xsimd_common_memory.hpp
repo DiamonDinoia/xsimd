@@ -351,113 +351,119 @@ namespace xsimd
         // mask helpers
         namespace detail
         {
-            // Helper: first_set_count recursion
-            constexpr std::size_t first_set_count_impl(uint64_t bits, std::size_t n)
-            {
-                return (bits & 1u) != 0u
-                    ? first_set_count_impl(bits >> 1, n + 1)
-                    : n;
-            }
-
-            template <class Mask>
-            constexpr std::size_t first_set_count(Mask const& mask) noexcept
-            {
-                return ((static_cast<uint64_t>(mask.mask()) >> first_set_count_impl(static_cast<uint64_t>(mask.mask()), 0)) == 0u)
-                    ? first_set_count_impl(static_cast<uint64_t>(mask.mask()), 0)
-                    : (Mask::size + 1);
-            }
-
-            // Helper: last_set_count recursion
-            template <std::size_t Size>
-            constexpr std::size_t last_set_count_impl(uint64_t bits, std::size_t n)
-            {
-                return (n < Size && (bits & (uint64_t(1) << (Size - 1 - n))) != 0u)
-                    ? last_set_count_impl<Size>(bits, n + 1)
-                    : n;
-            }
-
             // safe mask for k bits (must be single return)
             constexpr uint64_t low_mask(std::size_t k)
             {
                 return (k >= 64u) ? ~uint64_t(0) : ((uint64_t(1) << k) - 1u);
             }
-
-            template <class Mask>
-            constexpr std::size_t last_set_count(Mask const& mask) noexcept
-            {
-                return ((static_cast<uint64_t>(mask.mask()) & low_mask(Mask::size - last_set_count_impl<Mask::size>(static_cast<uint64_t>(mask.mask()), 0))) == 0u)
-                    ? last_set_count_impl<Mask::size>(static_cast<uint64_t>(mask.mask()), 0)
-                    : (Mask::size + 1);
-            }
         }
 
-        // masked_load
         template <class A, class T_in, class T_out>
-        XSIMD_INLINE batch<T_out, A> masked_load(T_in const* mem,
-                                                 typename batch<T_out, A>::batch_bool_type const& mask,
-                                                 convert<T_out>,
-                                                 aligned_mode,
-                                                 requires_arch<common>) noexcept
+        XSIMD_INLINE batch<T_out, A> masked_load(T_in const* mem, typename batch<T_out, A>::batch_bool_type const& mask, convert<T_out>, requires_arch<common>) noexcept
         {
-            alignas(A::alignment()) T_out buffer[batch<T_out, A>::size] = {};
-            for (std::size_t i = 0; i < batch<T_out, A>::size; ++i)
-            {
+            constexpr std::size_t size = batch<T_out, A>::size;
+            const uint64_t m = mask.mask();
+            if (m == 0u)
+                return batch<T_out, A>(0);
+            if (m == detail::low_mask(size))
+                return batch<T_out, A>::load(mem, unaligned_mode {});
+            alignas(A::alignment()) std::array<T_out, size> buffer { 0 };
+            for (std::size_t i = 0; i < size; ++i)
                 if (mask.get(i))
-                {
                     buffer[i] = static_cast<T_out>(mem[i]);
-                }
-            }
-            return batch<T_out, A>::load_aligned(buffer);
+            return batch<T_out, A>::load(buffer.data(), unaligned_mode {});
         }
 
         template <class A, class T_in, class T_out>
-        XSIMD_INLINE batch<T_out, A> masked_load(T_in const* mem,
-                                                 typename batch<T_out, A>::batch_bool_type const& mask,
-                                                 convert<T_out>,
-                                                 unaligned_mode,
-                                                 requires_arch<common>) noexcept
+        XSIMD_INLINE void masked_store(T_out* mem, batch<T_in, A> const& src, typename batch<T_in, A>::batch_bool_type const& mask, requires_arch<common>) noexcept
         {
-            alignas(A::alignment()) T_out buffer[batch<T_out, A>::size] = {};
-            for (std::size_t i = 0; i < batch<T_out, A>::size; ++i)
+            constexpr std::size_t size = batch<T_in, A>::size;
+            const uint64_t m = mask.mask();
+            if (m == 0u)
+                return;
+            if (m == detail::low_mask(size))
             {
+                src.store(mem, unaligned_mode {});
+                return;
+            }
+            for (std::size_t i = 0; i < size; ++i)
                 if (mask.get(i))
-                {
+                    mem[i] = static_cast<T_out>(src.get(i));
+        }
+
+        // COMPILE-TIME (single version each, XSIMD_IF_CONSTEXPR)
+        template <class A, class T_in, class T_out, bool... Values>
+        XSIMD_INLINE batch<T_out, A> masked_load(T_in const* mem, batch_bool_constant<T_out, A, Values...> mask, convert<T_out>, requires_arch<common>) noexcept
+        {
+            constexpr std::size_t size = batch<T_out, A>::size;
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
+
+            // All zeros / all ones fast paths
+            XSIMD_IF_CONSTEXPR(mask.is_all_zeros())
+            {
+                return batch<T_out, A>(0);
+            }
+            else XSIMD_IF_CONSTEXPR(mask.is_all_ones())
+            {
+                return batch<T_out, A>::load(mem, unaligned_mode {});
+            }
+            // Prefix-ones (n contiguous ones from LSB)
+            else XSIMD_IF_CONSTEXPR(n > 0)
+            {
+                alignas(A::alignment()) std::array<T_out, size> buffer { 0 };
+                for (std::size_t i = 0; i < n; ++i)
                     buffer[i] = static_cast<T_out>(mem[i]);
-                }
+                return batch<T_out, A>::load(buffer.data(), aligned_mode {});
             }
-            return batch<T_out, A>::load_aligned(buffer);
-        }
-
-        // masked_store
-        template <class A, class T_in, class T_out>
-        XSIMD_INLINE void masked_store(T_out* mem,
-                                       batch<T_in, A> const& src,
-                                       typename batch<T_in, A>::batch_bool_type const& mask,
-                                       aligned_mode,
-                                       requires_arch<common>) noexcept
-        {
-            for (std::size_t i = 0; i < batch<T_in, A>::size; ++i)
+            // Suffix-ones (l contiguous ones from MSB)
+            else XSIMD_IF_CONSTEXPR(l > 0)
             {
-                if (mask.get(i))
-                {
-                    mem[i] = static_cast<T_out>(src.get(i));
-                }
+                alignas(A::alignment()) std::array<T_out, size> buffer { 0 };
+                const std::size_t start = size - l;
+                for (std::size_t i = 0; i < l; ++i)
+                    buffer[start + i] = static_cast<T_out>(mem[start + i]);
+                return batch<T_out, A>::load(buffer.data(), aligned_mode {});
+            }
+            else
+            {
+                // Fallback to runtime path for non prefix/suffix masks
+                return masked_load<A>(mem, mask.as_batch_bool(), convert<T_out> {}, common {});
             }
         }
 
-        template <class A, class T_in, class T_out>
-        XSIMD_INLINE void masked_store(T_out* mem,
-                                       batch<T_in, A> const& src,
-                                       typename batch<T_in, A>::batch_bool_type const& mask,
-                                       unaligned_mode,
-                                       requires_arch<common>) noexcept
+        template <class A, class T_in, class T_out, bool... Values>
+        XSIMD_INLINE void masked_store(T_out* mem, batch<T_in, A> const& src, batch_bool_constant<T_in, A, Values...> mask, requires_arch<common>) noexcept
         {
-            for (std::size_t i = 0; i < batch<T_in, A>::size; ++i)
+            constexpr std::size_t size = batch<T_in, A>::size;
+            constexpr std::size_t n = mask.countr_one();
+            constexpr std::size_t l = mask.countl_one();
+
+            // All zeros / all ones fast paths
+            XSIMD_IF_CONSTEXPR(mask.is_all_zeros())
             {
-                if (mask.get(i))
-                {
+                return;
+            }
+            else XSIMD_IF_CONSTEXPR(mask.is_all_ones())
+            {
+                src.store(mem, unaligned_mode {});
+            }
+            // Prefix-ones
+            else XSIMD_IF_CONSTEXPR(n > 0)
+            {
+                for (std::size_t i = 0; i < n; ++i)
                     mem[i] = static_cast<T_out>(src.get(i));
-                }
+            }
+            // Suffix-ones
+            else XSIMD_IF_CONSTEXPR(l > 0)
+            {
+                const std::size_t start = size - l;
+                for (std::size_t i = 0; i < l; ++i)
+                    mem[start + i] = static_cast<T_out>(src.get(start + i));
+            }
+            else
+            {
+                masked_store<A>(mem, src, mask.as_batch_bool(), common {});
             }
         }
 

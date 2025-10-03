@@ -117,6 +117,104 @@ namespace xsimd
         {
             return {};
         }
+
+        // Mask utility helpers (C++11 constexpr)
+        static constexpr std::size_t popcount() noexcept
+        {
+            return popcount_impl(bits());
+        }
+
+        // trailing contiguous 1s (from LSB)
+        static constexpr std::size_t countr_one() noexcept
+        {
+            return countr_one_impl(bits(), size);
+        }
+
+        // leading contiguous 1s (from MSB)
+        static constexpr std::size_t countl_one() noexcept
+        {
+            return countl_one_impl(bits(), size);
+        }
+
+        static constexpr bool is_all_zeros() noexcept
+        {
+            return (bits() & low_mask(size)) == 0u;
+        }
+
+        static constexpr bool is_all_ones() noexcept
+        {
+            return popcount() == size;
+        }
+
+        static constexpr std::size_t first_one_index() noexcept
+        {
+            return first_one_index_impl(bits(), size);
+        }
+
+        static constexpr std::size_t last_one_index() noexcept
+        {
+            return last_one_index_impl(bits(), size);
+        }
+
+        static constexpr bool is_prefix_ones() noexcept
+        {
+            const std::size_t k = countr_one();
+            return (bits() & low_mask(size)) == low_mask(k);
+        }
+
+        static constexpr bool is_suffix_ones() noexcept
+        {
+            const std::size_t k = countl_one();
+            return (bits() & low_mask(size)) == (low_mask(k) << (size - (k > size ? size : k)));
+        }
+
+    private:
+        // Build a 64-bit mask from Values... (LSB = index 0)
+        static constexpr uint64_t bits() noexcept
+        {
+            return build_bits(std::array<bool, size> { { Values... } }, 0);
+        }
+
+        static constexpr uint64_t build_bits(std::array<bool, size> const& arr, std::size_t i) noexcept
+        {
+            return (i >= size)
+                       ? uint64_t(0)
+                       : (uint64_t(arr[i] ? 1 : 0) << i) | build_bits(arr, i + 1);
+        }
+
+        static constexpr uint64_t low_mask(std::size_t k) noexcept
+        {
+            return (k >= 64u) ? ~uint64_t(0) : ((uint64_t(1) << k) - 1u);
+        }
+
+        static constexpr std::size_t popcount_impl(uint64_t v) noexcept
+        {
+            return v == 0u ? 0u : (std::size_t(v & 1u) + popcount_impl(v >> 1));
+        }
+
+        static constexpr std::size_t countr_one_impl(uint64_t v, std::size_t n) noexcept
+        {
+            return (n == 0 || (v & 1u) == 0u) ? 0u : (1u + countr_one_impl(v >> 1, n - 1));
+        }
+
+        static constexpr std::size_t countl_one_impl(uint64_t v, std::size_t n) noexcept
+        {
+            return (n == 0)
+                       ? 0u
+                       : ((((v >> (n - 1)) & 1u) == 0u) ? 0u : (1u + countl_one_impl(v, n - 1)));
+        }
+
+        static constexpr std::size_t first_one_index_impl(uint64_t v, std::size_t n) noexcept
+        {
+            return (n == 0) ? 0u : ((v & 1u) ? 0u : (1u + first_one_index_impl(v >> 1, n - 1)));
+        }
+
+        static constexpr std::size_t last_one_index_impl(uint64_t v, std::size_t n) noexcept
+        {
+            return (n == 0)
+                       ? 0u
+                       : ((((v >> (n - 1)) & 1u) ? (n - 1) : last_one_index_impl(v, n - 1)));
+        }
     };
 
     /**

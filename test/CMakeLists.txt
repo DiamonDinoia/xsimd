@@ -155,6 +155,7 @@ set(XSIMD_TESTS
     test_hyperbolic.cpp
     test_load_store.cpp
     test_memory.cpp
+    test_masked_avx_int.cpp
     test_poly_evaluation.cpp
     test_power.cpp
     test_rounding.cpp
