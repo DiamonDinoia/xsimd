@@ -533,7 +533,7 @@ namespace xsimd
             __cpuid(buf, leaf);
             std::memcpy(reg.data(), buf, sizeof(buf));
 
-#elif defined(__GNUC__) || defined(__clang__)
+#elif XSIMD_WITH_INLINE_ASM
 
 #if defined(__i386__) && defined(__PIC__)
             // %ebx may be the PIC register
@@ -561,7 +561,7 @@ namespace xsimd
 #error "_MSC_VER < 1400 is not supported"
 #endif
 
-#elif defined(__GNUC__)
+#elif XSIMD_WITH_INLINE_ASM
             x86_reg32_t xcr0 = {};
             __asm__(
                 "xorl %%ecx, %%ecx\n"

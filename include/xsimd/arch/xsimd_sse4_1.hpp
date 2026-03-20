@@ -64,11 +64,8 @@ namespace xsimd
                 __m128d f = _mm_sub_pd(_mm_castsi128_pd(xH), _mm_set1_pd(442726361368656609280.)); //  3*2^67 + 2^52
                 // With -ffast-math, the compiler may reassociate (xH-C)+xL into
                 // xH+(xL-C). Since xL<<C this causes catastrophic cancellation.
-                // The asm barrier forces f into a register before the add, blocking
-                // the reorder. It emits zero instructions.
-#if defined(__GNUC__)
-                __asm__ volatile("" : "+x"(f));
-#endif
+                // Barrier the intermediate before the final add.
+                detail::reassociation_barrier(f, sse4_1 {});
                 return _mm_add_pd(f, _mm_castsi128_pd(xL));
             }
 
@@ -81,9 +78,7 @@ namespace xsimd
                 __m128i xL = _mm_blend_epi16(x, _mm_castpd_si128(_mm_set1_pd(0x0010000000000000)), 0xcc); //  2^52
                 __m128d f = _mm_sub_pd(_mm_castsi128_pd(xH), _mm_set1_pd(19342813118337666422669312.)); //  2^84 + 2^52
                 // See above: prevent -ffast-math from reassociating (xH-C)+xL.
-#if defined(__GNUC__)
-                __asm__ volatile("" : "+x"(f));
-#endif
+                detail::reassociation_barrier(f, sse4_1 {});
                 return _mm_add_pd(f, _mm_castsi128_pd(xL));
             }
         }

@@ -716,6 +716,8 @@ namespace xsimd
                 __m128i mask = _mm_setr_epi16(0xFFFF, 0xFFFF, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0x0000, 0x0000);
                 __m128i xL = _mm_or_si128(_mm_and_si128(mask, x), _mm_andnot_si128(mask, _mm_castpd_si128(_mm_set1_pd(0x0010000000000000)))); //  2^52
                 __m128d f = _mm_sub_pd(_mm_castsi128_pd(xH), _mm_set1_pd(19342813118337666422669312.)); //  2^84 + 2^52
+                // Prevent -ffast-math from reassociating (xH-C)+xL into xH+(xL-C).
+                detail::reassociation_barrier(f, sse2 {});
                 return _mm_add_pd(f, _mm_castsi128_pd(xL));
             }
 
@@ -730,6 +732,8 @@ namespace xsimd
                 __m128i mask = _mm_setr_epi16(0xFFFF, 0xFFFF, 0xFFFF, 0x0000, 0xFFFF, 0xFFFF, 0xFFFF, 0x0000);
                 __m128i xL = _mm_or_si128(_mm_and_si128(mask, x), _mm_andnot_si128(mask, _mm_castpd_si128(_mm_set1_pd(0x0010000000000000)))); //  2^52
                 __m128d f = _mm_sub_pd(_mm_castsi128_pd(xH), _mm_set1_pd(442726361368656609280.)); //  3*2^67 + 2^52
+                // Prevent -ffast-math from reassociating (xH-C)+xL into xH+(xL-C).
+                detail::reassociation_barrier(f, sse2 {});
                 return _mm_add_pd(f, _mm_castsi128_pd(xL));
             }
 

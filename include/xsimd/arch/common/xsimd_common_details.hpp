@@ -111,6 +111,22 @@ namespace xsimd
 
         namespace detail
         {
+            template <class T>
+            XSIMD_INLINE void reassociation_barrier(T& x, memory_barrier_tag) noexcept
+            {
+#if XSIMD_WITH_INLINE_ASM
+                __asm__ volatile("" : : "r"(&x) : "memory");
+#else
+                (void)x;
+#endif
+            }
+
+            template <class T, class A>
+            XSIMD_INLINE void reassociation_barrier(T& x, A const&) noexcept
+            {
+                detail::reassociation_barrier(x, memory_barrier_tag {});
+            }
+
             template <class F, class A, class T, class... Batches>
             XSIMD_INLINE batch<T, A> apply(F&& func, batch<T, A> const& self, batch<T, A> const& other) noexcept
             {

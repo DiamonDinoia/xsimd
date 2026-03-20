@@ -47,6 +47,27 @@
 /**
  * @ingroup xsimd_config_macro
  *
+ * Set to 1 if GNU-style inline assembly is available, to 0 otherwise.
+ */
+/* Use __clang__ || __GNUC__ for GNU-style inline asm. clang-cl runs in
+ * MSVC-compatibility mode and does not define __GNUC__ by default, but it
+ * still defines __clang__. Clang documents __asm__/__asm__ support and broad
+ * GCC-extension compatibility:
+ * https://clang.llvm.org/docs/LanguageExtensions.html
+ * Clang only emits __GNUC__ when GNUCVersion != 0:
+ * https://raw.githubusercontent.com/llvm/llvm-project/main/clang/lib/Frontend/InitPreprocessor.cpp
+ * and GNUCVersion defaults to 0:
+ * https://raw.githubusercontent.com/llvm/llvm-project/main/clang/include/clang/Basic/LangOptions.def
+ */
+#if defined(__clang__) || defined(__GNUC__)
+#define XSIMD_WITH_INLINE_ASM 1
+#else
+#define XSIMD_WITH_INLINE_ASM 0
+#endif
+
+/**
+ * @ingroup xsimd_config_macro
+ *
  * Set to 1 if SSE2 is available at compile-time, to 0 otherwise.
  */
 #ifdef __SSE2__

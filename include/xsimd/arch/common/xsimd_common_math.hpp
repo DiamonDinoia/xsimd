@@ -1900,17 +1900,9 @@ namespace xsimd
                 batch_type s = bitofsign(self);
                 batch_type v = self ^ s;
                 batch_type t2n = constants::twotonmb<batch_type>();
-                // Under fast-math, reordering is possible and the compiler optimizes d
-                // to v. That's not what we want, so prevent compiler optimization here.
-                // FIXME: it may be better to emit a memory barrier here (?).
-#ifdef __FAST_MATH__
                 batch_type d0 = v + t2n;
-                asm volatile("" ::"r"(&d0) : "memory");
+                detail::reassociation_barrier(d0.data, A {});
                 batch_type d = d0 - t2n;
-#else
-                batch_type d0 = v + t2n;
-                batch_type d = d0 - t2n;
-#endif
                 return s ^ select(v < t2n, d, v);
             }
         }
