@@ -101,11 +101,18 @@ namespace xsimd
             return load_aligned<A>(src, convert<T>(), sve {});
         }
 
-        // load_masked
+        // load_masked (compile-time mask)
         template <class A, class T, bool... Values, class Mode, detail::enable_arithmetic_t<T> = 0>
-        XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool_constant<float, A, Values...>, Mode, requires_arch<sve>) noexcept
+        XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool_constant<T, A, Values...>, convert<T>, Mode, requires_arch<sve>) noexcept
         {
             return svld1(detail_sve::pmask<Values...>(), reinterpret_cast<map_to_sized_type_t<T> const*>(mem));
+        }
+
+        // load_masked (runtime mask)
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, Mode, requires_arch<sve>) noexcept
+        {
+            return svld1(mask, reinterpret_cast<project_num_t<T> const*>(mem));
         }
 
         // load_complex
@@ -139,6 +146,20 @@ namespace xsimd
         XSIMD_INLINE void store_unaligned(T* dst, batch<T, A> const& src, requires_arch<sve>) noexcept
         {
             store_aligned<A>(dst, src, sve {});
+        }
+
+        // store_masked (compile-time mask)
+        template <class A, class T, bool... Values, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE void store_masked(T* mem, batch<T, A> const& src, batch_bool_constant<T, A, Values...>, Mode, requires_arch<sve>) noexcept
+        {
+            svst1(detail_sve::pmask<Values...>(), reinterpret_cast<project_num_t<T>*>(mem), src);
+        }
+
+        // store_masked (runtime mask)
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE void store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, Mode, requires_arch<sve>) noexcept
+        {
+            svst1(mask, reinterpret_cast<project_num_t<T>*>(mem), src);
         }
 
         // store_complex

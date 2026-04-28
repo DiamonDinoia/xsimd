@@ -12,7 +12,7 @@ Data Transfers
 From memory:
 
 +---------------------------------------+----------------------------------------------------+
-| :cpp:func:`load`                      | load values from memory (optionally masked)        |
+| :cpp:func:`load`                      | load values from memory (optionally masked) [#m]_  |
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`load_aligned`              | load values from aligned memory                    |
 +---------------------------------------+----------------------------------------------------+
@@ -32,7 +32,7 @@ From a scalar:
 To memory:
 
 +---------------------------------------+----------------------------------------------------+
-| :cpp:func:`store`                     | store values to memory (optionally masked)         |
+| :cpp:func:`store`                     | store values to memory (optionally masked) [#m]_   |
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`store_aligned`             | store values to aligned memory                     |
 +---------------------------------------+----------------------------------------------------+
@@ -84,3 +84,16 @@ The following empty types are used for tag dispatching:
 
 .. doxygenstruct:: xsimd::unaligned_mode
    :project: xsimd
+
+.. rubric:: Footnotes
+
+.. [#m] Masked ``load`` / ``store`` come in two flavours. The
+   :cpp:class:`batch_bool_constant` overload encodes the mask in the type, is
+   resolved at compile time and is always efficient. The runtime
+   :cpp:class:`batch_bool` overload, by contrast, falls back to a per-lane
+   scalar loop on architectures without a native masked load/store
+   instruction — SSE2 through SSE4.2, NEON/NEON64, VSX, S390x, and WASM.
+   AVX, AVX2, AVX-512, SVE and RVV use native masked instructions and pay no
+   such penalty. Prefer the compile-time mask whenever the selection is known
+   at compile time, and avoid runtime-mask loads/stores in hot inner loops on
+   the affected architectures.

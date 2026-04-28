@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <complex>
+#include <cstdint>
 
 #include "../../types/xsimd_batch_constant.hpp"
 #include "./xsimd_common_details.hpp"
@@ -374,6 +375,39 @@ namespace xsimd
             return batch<T_out, A>::load(buffer.data(), aligned_mode {});
         }
 
+        template <class A, class T>
+        XSIMD_INLINE batch<T, A>
+        load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, aligned_mode, requires_arch<common>) noexcept
+        {
+            // Aligned mode contract: ``mem`` is aligned to ``A::alignment()``,
+            // and ``A::alignment() >= sizeof(batch<T, A>)`` for every common-
+            // fallback arch (SSE2-SSE4.2, NEON, NEON64, VSX, S390x, WASM — all
+            // 16-byte aligned, 16-byte vectors). The whole vector therefore
+            // lives inside a single alignment unit (and a single page, since
+            // pages are >= alignment), so an unconditional load cannot fault
+            // on inactive lanes. Lower the masked load to ``select`` against a
+            // zero broadcast — collapses to ~3 SIMD ops on every fallback arch.
+            return select(mask,
+                          batch<T, A>::load_aligned(mem),
+                          batch<T, A>(T(0)));
+        }
+
+        template <class A, class T>
+        XSIMD_INLINE batch<T, A>
+        load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, unaligned_mode, requires_arch<common>) noexcept
+        {
+            // Unaligned + runtime mask: ``mem`` may straddle a page boundary
+            // whose neighbour is unmapped, so an unconditional whole-vector
+            // ``load_unaligned`` is unsafe. Stay scalar.
+            constexpr std::size_t size = batch<T, A>::size;
+            alignas(A::alignment()) std::array<T, size> buffer {};
+            const uint64_t bits = mask.mask();
+            for (std::size_t i = 0; i < size; ++i)
+                if ((bits >> i) & uint64_t(1))
+                    buffer[i] = mem[i];
+            return batch<T, A>::load_aligned(buffer.data());
+        }
+
         template <class A, class T_in, class T_out, bool... Values, class alignment>
         XSIMD_INLINE void
         store_masked(T_out* mem, batch<T_in, A> const& src, batch_bool_constant<T_in, A, Values...>, alignment, requires_arch<common>) noexcept
@@ -386,6 +420,33 @@ namespace xsimd
                 {
                     mem[i] = static_cast<T_out>(src.get(i));
                 }
+        }
+
+        template <class A, class T>
+        XSIMD_INLINE void
+        store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, aligned_mode, requires_arch<common>) noexcept
+        {
+            // Symmetric to load_masked: aligned ``mem`` cannot fault for any
+            // lane in the batch, so a read-modify-write through ``select`` is
+            // safe and collapses to load + select + store on every fallback
+            // arch.
+            const auto current = batch<T, A>::load_aligned(mem);
+            select(mask, src, current).store_aligned(mem);
+        }
+
+        template <class A, class T>
+        XSIMD_INLINE void
+        store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, unaligned_mode, requires_arch<common>) noexcept
+        {
+            // Symmetric to the unaligned load: unaligned RMW could fault on a
+            // page boundary, so stay scalar.
+            constexpr std::size_t size = batch<T, A>::size;
+            alignas(A::alignment()) std::array<T, size> src_buf;
+            src.store_aligned(src_buf.data());
+            const uint64_t bits = mask.mask();
+            for (std::size_t i = 0; i < size; ++i)
+                if ((bits >> i) & uint64_t(1))
+                    mem[i] = src_buf[i];
         }
 
         template <class A, bool... Values, class Mode>
