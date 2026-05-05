@@ -379,12 +379,8 @@ namespace xsimd
         XSIMD_INLINE batch<T, A>
         load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, Mode, requires_arch<common>) noexcept
         {
-            // Per-lane validity contract: only active lanes of ``mem`` are
-            // required to be addressable. An unconditional whole-vector load
-            // would touch inactive lanes and trip ASan/Valgrind on partial
-            // buffers, so stay scalar. Arches with hardware predicated loads
-            // (AVX2 32/64-bit, AVX-512, SVE, RVV) override this with a single
-            // intrinsic that suppresses inactive-lane reads in hardware.
+            // Per-lane validity contract: only active lanes are read.
+            // Arches with hardware predicated loads override this.
             constexpr std::size_t size = batch<T, A>::size;
             alignas(A::alignment()) std::array<T, size> buffer;
             for (std::size_t i = 0; i < size; ++i)
@@ -410,18 +406,53 @@ namespace xsimd
         XSIMD_INLINE void
         store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, Mode, requires_arch<common>) noexcept
         {
-            // Per-lane validity contract (matches native masked-store APIs):
-            // only active lanes of ``mem`` are touched. A load+select+store
-            // RMW would both read and write inactive bytes, breaking that
-            // contract — stay scalar. Arches with hardware predicated stores
-            // override this with a single intrinsic that suppresses inactive
-            // lanes in hardware.
+            // Per-lane validity contract: only active lanes are written.
+            // Arches with hardware predicated stores override this.
             constexpr std::size_t size = batch<T, A>::size;
             alignas(A::alignment()) std::array<T, size> src_buf;
             src.store_aligned(src_buf.data());
             for (std::size_t i = 0; i < size; ++i)
                 if (mask.get(i))
                     mem[i] = src_buf[i];
+        }
+
+        // ``offset_back`` (used by load_tail / store_tail to step the base
+        // pointer back by ``size - n`` lanes so the active high-``n`` lanes
+        // land at ``[mem, mem + n)``) is defined in xsimd_common_fwd.hpp
+        // because per-arch headers need it before this file is included.
+
+        template <class A, class T, class Mode>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<common>) noexcept
+        {
+            const auto mask = batch_bool<T, A>::from_mask(::xsimd::details::full_mask(n));
+            return load_masked<A>(mem, mask, convert<T> {}, unaligned_mode {}, A {});
+        }
+
+        template <class A, class T, class Mode>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<common>) noexcept
+        {
+            const auto mask = batch_bool<T, A>::from_mask(::xsimd::details::full_mask(n));
+            store_masked<A>(mem, src, mask, unaligned_mode {}, A {});
+        }
+
+        template <class A, class T, class Mode>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<common>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto mask = batch_bool<T, A>::from_mask(::xsimd::details::full_mask(n) << (size - n));
+            return load_masked<A>(detail::offset_back(mem, size - n), mask, convert<T> {}, unaligned_mode {}, A {});
+        }
+
+        template <class A, class T, class Mode>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<common>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto mask = batch_bool<T, A>::from_mask(::xsimd::details::full_mask(n) << (size - n));
+            store_masked<A>(detail::offset_back(mem, size - n), src, mask, unaligned_mode {}, A {});
         }
 
         template <class A, bool... Values, class Mode>

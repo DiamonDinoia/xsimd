@@ -718,6 +718,99 @@ namespace xsimd
                 _mm512_extracti32x4_epi32(lo, 1),
                 2);
         }
+
+        // load_head / load_tail / store_head / store_tail (8/16-bit T).
+        // Caller (batch::load_head/tail) guarantees 1 <= n < size, so the
+        // shift `1 << n` is well-defined for size <= 64. Inactive lanes
+        // are zero-filled by maskz_loadu, matching xsimd's contract.
+        namespace detail
+        {
+            XSIMD_INLINE __m512i headtail_loadu(int8_t const* mem, uint64_t m) noexcept
+            {
+                return _mm512_maskz_loadu_epi8(static_cast<__mmask64>(m), mem);
+            }
+            XSIMD_INLINE __m512i headtail_loadu(uint8_t const* mem, uint64_t m) noexcept
+            {
+                return _mm512_maskz_loadu_epi8(static_cast<__mmask64>(m), mem);
+            }
+            XSIMD_INLINE __m512i headtail_loadu(int16_t const* mem, uint64_t m) noexcept
+            {
+                return _mm512_maskz_loadu_epi16(static_cast<__mmask32>(m), mem);
+            }
+            XSIMD_INLINE __m512i headtail_loadu(uint16_t const* mem, uint64_t m) noexcept
+            {
+                return _mm512_maskz_loadu_epi16(static_cast<__mmask32>(m), mem);
+            }
+
+            XSIMD_INLINE void headtail_storeu(int8_t* mem, __m512i src, uint64_t m) noexcept
+            {
+                _mm512_mask_storeu_epi8(mem, static_cast<__mmask64>(m), src);
+            }
+            XSIMD_INLINE void headtail_storeu(uint8_t* mem, __m512i src, uint64_t m) noexcept
+            {
+                _mm512_mask_storeu_epi8(mem, static_cast<__mmask64>(m), src);
+            }
+            XSIMD_INLINE void headtail_storeu(int16_t* mem, __m512i src, uint64_t m) noexcept
+            {
+                _mm512_mask_storeu_epi16(mem, static_cast<__mmask32>(m), src);
+            }
+            XSIMD_INLINE void headtail_storeu(uint16_t* mem, __m512i src, uint64_t m) noexcept
+            {
+                _mm512_mask_storeu_epi16(mem, static_cast<__mmask32>(m), src);
+            }
+
+            // Map T (char / signed char / unsigned char / int8_t / uint8_t /
+            // int16_t / uint16_t) to the matching sized-integer pointer type
+            // expected by the overloads above. `char` is a distinct type from
+            // int8_t / uint8_t and would not resolve otherwise.
+            template <class T>
+            using headtail_sized_int_t = std::conditional_t<
+                sizeof(T) == 1,
+                std::conditional_t<std::is_signed<T>::value, int8_t, uint8_t>,
+                std::conditional_t<std::is_signed<T>::value, int16_t, uint16_t>>;
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 1 || sizeof(T) == 2)>>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<avx512bw>) noexcept
+        {
+            using S = detail::headtail_sized_int_t<T>;
+            const uint64_t m = (uint64_t(1) << n) - 1;
+            return detail::headtail_loadu(reinterpret_cast<S const*>(mem), m);
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 1 || sizeof(T) == 2)>>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<avx512bw>) noexcept
+        {
+            using S = detail::headtail_sized_int_t<T>;
+            constexpr std::size_t size = batch<T, A>::size;
+            const uint64_t m = ((uint64_t(1) << n) - 1) << (size - n);
+            return detail::headtail_loadu(reinterpret_cast<S const*>(detail::offset_back(mem, size - n)), m);
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 1 || sizeof(T) == 2)>>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx512bw>) noexcept
+        {
+            using S = detail::headtail_sized_int_t<T>;
+            const uint64_t m = (uint64_t(1) << n) - 1;
+            detail::headtail_storeu(reinterpret_cast<S*>(mem), src, m);
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 1 || sizeof(T) == 2)>>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx512bw>) noexcept
+        {
+            using S = detail::headtail_sized_int_t<T>;
+            constexpr std::size_t size = batch<T, A>::size;
+            const uint64_t m = ((uint64_t(1) << n) - 1) << (size - n);
+            detail::headtail_storeu(reinterpret_cast<S*>(detail::offset_back(mem, size - n)), src, m);
+        }
     }
 }
 

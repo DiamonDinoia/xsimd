@@ -20,6 +20,10 @@ From memory:
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`load_as`                   | load values, forcing a type conversion             |
 +---------------------------------------+----------------------------------------------------+
+| :cpp:func:`load_head`                  | load the first ``n`` contiguous elements [#h]_     |
++---------------------------------------+----------------------------------------------------+
+| :cpp:func:`load_tail`                  | load the last ``n`` contiguous elements [#h]_      |
++---------------------------------------+----------------------------------------------------+
 
 From a scalar:
 
@@ -39,6 +43,10 @@ To memory:
 | :cpp:func:`store_unaligned`           | store values to unaligned memory                   |
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`store_as`                  | store values, forcing a type conversion            |
++---------------------------------------+----------------------------------------------------+
+| :cpp:func:`store_head`                 | store the first ``n`` contiguous elements [#h]_    |
++---------------------------------------+----------------------------------------------------+
+| :cpp:func:`store_tail`                 | store the last ``n`` contiguous elements [#h]_     |
 +---------------------------------------+----------------------------------------------------+
 
 In place:
@@ -92,3 +100,9 @@ The following empty types are used for tag dispatching:
    is resolved at compile time. The runtime :cpp:class:`batch_bool` overload
    accepts a mask computed at runtime. Prefer the compile-time mask whenever
    the selection is known at compile time.
+
+.. [#h] ``load_head`` / ``store_head`` / ``load_tail`` / ``store_tail``
+   take a runtime element count ``n`` instead of a constructed mask;
+   they are sugar for the runtime-mask ``load`` / ``store`` with a
+   contiguous-prefix or contiguous-suffix mask, and inherit its
+   contract and per-arch codegen.

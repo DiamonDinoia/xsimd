@@ -243,6 +243,169 @@ struct load_store_test
 #endif
     }
 
+    template <class V>
+    void run_load_head_tail(const V&, const std::string&, std::false_type)
+    {
+    }
+
+    template <class V>
+    void run_load_head_tail(const V& v, const std::string& name)
+    {
+        run_load_head_tail(v, name, std::is_same<typename V::value_type, value_type> {});
+    }
+
+    template <class V>
+    void run_store_head_tail(const V&, const std::string&, std::false_type)
+    {
+    }
+
+    template <class V>
+    void run_store_head_tail(const V& v, const std::string& name)
+    {
+        run_store_head_tail(v, name, std::is_same<typename V::value_type, value_type> {});
+    }
+
+    template <class V>
+    void run_load_head_tail(const V& v, const std::string& name, std::true_type)
+    {
+        const array_type ref = [&]
+        {
+            array_type a;
+            std::copy(v.cbegin(), v.cend(), a.begin());
+            return a;
+        }();
+
+        for (std::size_t n = 0; n <= size; ++n)
+        {
+            array_type expected_head {};
+            for (std::size_t i = 0; i < n; ++i)
+                expected_head[i] = ref[i];
+            array_type expected_tail {};
+            for (std::size_t i = 0; i < n; ++i)
+                expected_tail[size - n + i] = ref[i];
+
+            const value_type* mem = v.data();
+            using arch_t = typename batch_type::arch_type;
+            batch_type b = xsimd::load_head<value_type, arch_t>(mem, n, xsimd::aligned_mode());
+            INFO(name, " load_head aligned n=", n);
+            CHECK_BATCH_EQ(b, expected_head);
+
+            b = xsimd::load_head<value_type, arch_t>(mem, n, xsimd::unaligned_mode());
+            INFO(name, " load_head unaligned n=", n);
+            CHECK_BATCH_EQ(b, expected_head);
+
+            b = batch_type::load_head(mem, n, xsimd::aligned_mode());
+            INFO(name, " batch::load_head aligned n=", n);
+            CHECK_BATCH_EQ(b, expected_head);
+
+            b = xsimd::load_tail<value_type, arch_t>(mem, n, xsimd::aligned_mode());
+            INFO(name, " load_tail aligned n=", n);
+            CHECK_BATCH_EQ(b, expected_tail);
+
+            b = xsimd::load_tail<value_type, arch_t>(mem, n, xsimd::unaligned_mode());
+            INFO(name, " load_tail unaligned n=", n);
+            CHECK_BATCH_EQ(b, expected_tail);
+
+            b = batch_type::load_tail(mem, n, xsimd::aligned_mode());
+            INFO(name, " batch::load_tail aligned n=", n);
+            CHECK_BATCH_EQ(b, expected_tail);
+        }
+    }
+
+    template <class V>
+    void run_store_head_tail(const V& v, const std::string& name, std::true_type)
+    {
+        static constexpr value_type sentinel = static_cast<value_type>(91);
+        batch_type b = batch_type::load_aligned(v.data());
+        V scratch(size);
+
+        for (std::size_t n = 0; n <= size; ++n)
+        {
+            // store_head: low n lanes -> mem[0, n)
+            std::fill(scratch.begin(), scratch.end(), sentinel);
+            xsimd::store_head(scratch.data(), n, b, xsimd::aligned_mode());
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                INFO(name, " store_head aligned n=", n, " i=", i);
+                CHECK_EQ(scratch[i], v[i]);
+            }
+            for (std::size_t i = n; i < size; ++i)
+            {
+                INFO(name, " store_head aligned untouched n=", n, " i=", i);
+                CHECK_EQ(scratch[i], sentinel);
+            }
+
+            std::fill(scratch.begin(), scratch.end(), sentinel);
+            xsimd::store_head(scratch.data(), n, b, xsimd::unaligned_mode());
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                INFO(name, " store_head unaligned n=", n, " i=", i);
+                CHECK_EQ(scratch[i], v[i]);
+            }
+            for (std::size_t i = n; i < size; ++i)
+            {
+                INFO(name, " store_head unaligned untouched n=", n, " i=", i);
+                CHECK_EQ(scratch[i], sentinel);
+            }
+
+            // store_tail: high n lanes -> mem[0, n)
+            std::fill(scratch.begin(), scratch.end(), sentinel);
+            xsimd::store_tail(scratch.data(), n, b, xsimd::aligned_mode());
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                INFO(name, " store_tail aligned n=", n, " i=", i);
+                CHECK_EQ(scratch[i], v[size - n + i]);
+            }
+            for (std::size_t i = n; i < size; ++i)
+            {
+                INFO(name, " store_tail aligned untouched n=", n, " i=", i);
+                CHECK_EQ(scratch[i], sentinel);
+            }
+
+            std::fill(scratch.begin(), scratch.end(), sentinel);
+            xsimd::store_tail(scratch.data(), n, b, xsimd::unaligned_mode());
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                INFO(name, " store_tail unaligned n=", n, " i=", i);
+                CHECK_EQ(scratch[i], v[size - n + i]);
+            }
+            for (std::size_t i = n; i < size; ++i)
+            {
+                INFO(name, " store_tail unaligned untouched n=", n, " i=", i);
+                CHECK_EQ(scratch[i], sentinel);
+            }
+        }
+    }
+
+    void test_head_tail()
+    {
+        run_load_head_tail(i8_vec, "head/tail int8_t");
+        run_load_head_tail(ui8_vec, "head/tail uint8_t");
+        run_load_head_tail(i16_vec, "head/tail int16_t");
+        run_load_head_tail(ui16_vec, "head/tail uint16_t");
+        run_load_head_tail(i32_vec, "head/tail int32_t");
+        run_load_head_tail(ui32_vec, "head/tail uint32_t");
+        run_load_head_tail(i64_vec, "head/tail int64_t");
+        run_load_head_tail(ui64_vec, "head/tail uint64_t");
+        run_load_head_tail(f_vec, "head/tail float");
+#if !XSIMD_WITH_NEON || XSIMD_WITH_NEON64
+        run_load_head_tail(d_vec, "head/tail double");
+#endif
+
+        run_store_head_tail(i8_vec, "head/tail int8_t");
+        run_store_head_tail(ui8_vec, "head/tail uint8_t");
+        run_store_head_tail(i16_vec, "head/tail int16_t");
+        run_store_head_tail(ui16_vec, "head/tail uint16_t");
+        run_store_head_tail(i32_vec, "head/tail int32_t");
+        run_store_head_tail(ui32_vec, "head/tail uint32_t");
+        run_store_head_tail(i64_vec, "head/tail int64_t");
+        run_store_head_tail(ui64_vec, "head/tail uint64_t");
+        run_store_head_tail(f_vec, "head/tail float");
+#if !XSIMD_WITH_NEON || XSIMD_WITH_NEON64
+        run_store_head_tail(d_vec, "head/tail double");
+#endif
+    }
+
     void test_masked()
     {
         using arch = typename B::arch_type;
@@ -648,6 +811,8 @@ TEST_CASE_TEMPLATE("[load store]", B, BATCH_TYPES)
     SUBCASE("scatter") { Test.test_scatter(); }
 
     SUBCASE("masked") { Test.test_masked(); }
+
+    SUBCASE("head_tail") { Test.test_head_tail(); }
 }
 
 #endif

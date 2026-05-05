@@ -252,6 +252,158 @@ namespace xsimd
             detail::maskstore(reinterpret_cast<int_t*>(mem), __m256i(mask), __m256i(src));
         }
 
+        // load/store_head/_tail. AVX2 has 256-bit integer compares, so the
+        // mask is built integer-domain (vpbroadcastd/q + vpcmpgtd/q) and
+        // feeds vmaskmovps/pd or vpmaskmovd/q directly. Caller guarantees
+        // 1 <= n < size, so the signed compare against the iota constant
+        // does not overflow.
+        namespace detail
+        {
+            XSIMD_INLINE __m256i headtail_lanemask256_head_32(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr int32_t iota[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+                const auto v_iota = _mm256_load_si256(reinterpret_cast<__m256i const*>(iota));
+                return _mm256_cmpgt_epi32(_mm256_set1_epi32(static_cast<int32_t>(n)), v_iota);
+            }
+            XSIMD_INLINE __m256i headtail_lanemask256_head_64(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr int64_t iota[4] = { 0, 1, 2, 3 };
+                const auto v_iota = _mm256_load_si256(reinterpret_cast<__m256i const*>(iota));
+                return _mm256_cmpgt_epi64(_mm256_set1_epi64x(static_cast<int64_t>(n)), v_iota);
+            }
+            // tail: lanes [size-n .. size) active, i.e. iota > size-n-1
+            XSIMD_INLINE __m256i headtail_lanemask256_tail_32(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr int32_t iota[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+                const auto v_iota = _mm256_load_si256(reinterpret_cast<__m256i const*>(iota));
+                return _mm256_cmpgt_epi32(v_iota, _mm256_set1_epi32(static_cast<int32_t>(8 - n) - 1));
+            }
+            XSIMD_INLINE __m256i headtail_lanemask256_tail_64(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr int64_t iota[4] = { 0, 1, 2, 3 };
+                const auto v_iota = _mm256_load_si256(reinterpret_cast<__m256i const*>(iota));
+                return _mm256_cmpgt_epi64(v_iota, _mm256_set1_epi64x(static_cast<int64_t>(4 - n) - 1));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            using int_t = std::conditional_t<sizeof(T) == 4, int, long long>;
+            const auto mask = (sizeof(T) == 4) ? detail::headtail_lanemask256_head_32(n)
+                                               : detail::headtail_lanemask256_head_64(n);
+            return detail::maskload(reinterpret_cast<int_t const*>(mem), mask);
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            using int_t = std::conditional_t<sizeof(T) == 4, int, long long>;
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto mask = (sizeof(T) == 4) ? detail::headtail_lanemask256_tail_32(n)
+                                               : detail::headtail_lanemask256_tail_64(n);
+            return detail::maskload(reinterpret_cast<int_t const*>(detail::offset_back(mem, size - n)), mask);
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                _mm256_maskstore_epi32(reinterpret_cast<int*>(mem),
+                                       detail::headtail_lanemask256_head_32(n), src);
+            }
+            else
+            {
+                _mm256_maskstore_epi64(reinterpret_cast<long long*>(mem),
+                                       detail::headtail_lanemask256_head_64(n), src);
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto base = detail::offset_back(mem, size - n);
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                _mm256_maskstore_epi32(reinterpret_cast<int*>(base),
+                                       detail::headtail_lanemask256_tail_32(n), src);
+            }
+            else
+            {
+                _mm256_maskstore_epi64(reinterpret_cast<long long*>(base),
+                                       detail::headtail_lanemask256_tail_64(n), src);
+            }
+        }
+
+        // float/double on AVX2: integer-domain mask feeds vmaskmovps/pd
+        // directly, saving the int->float scalar cvt that plain-AVX needs.
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_head(float const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_ps(mem, detail::headtail_lanemask256_head_32(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_head(double const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            return _mm256_maskload_pd(mem, detail::headtail_lanemask256_head_64(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_tail(float const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            return _mm256_maskload_ps(detail::offset_back(mem, size - n),
+                                      detail::headtail_lanemask256_tail_32(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_tail(double const* mem, std::size_t n, Mode, requires_arch<avx2>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            return _mm256_maskload_pd(detail::offset_back(mem, size - n),
+                                      detail::headtail_lanemask256_tail_64(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_ps(mem, detail::headtail_lanemask256_head_32(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            _mm256_maskstore_pd(mem, detail::headtail_lanemask256_head_64(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            _mm256_maskstore_ps(detail::offset_back(mem, size - n),
+                                detail::headtail_lanemask256_tail_32(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx2>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            _mm256_maskstore_pd(detail::offset_back(mem, size - n),
+                                detail::headtail_lanemask256_tail_64(n), src);
+        }
+
         // load_stream
         template <class A, class T, class = std::enable_if_t<std::is_integral<T>::value, void>>
         XSIMD_INLINE batch<T, A> load_stream(T const* mem, convert<T>, requires_arch<avx2>) noexcept

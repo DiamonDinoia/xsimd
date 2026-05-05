@@ -151,6 +151,12 @@ namespace xsimd
         template <class Mode = aligned_mode>
         XSIMD_INLINE void store(T* mem, batch_bool<T, A> mask, Mode = {}) const noexcept;
 
+        // Head/tail: contiguous prefix/suffix variants of the runtime-mask store.
+        XSIMD_INLINE void store_head(T* mem, std::size_t n, aligned_mode) const noexcept;
+        XSIMD_INLINE void store_head(T* mem, std::size_t n, unaligned_mode) const noexcept;
+        XSIMD_INLINE void store_tail(T* mem, std::size_t n, aligned_mode) const noexcept;
+        XSIMD_INLINE void store_tail(T* mem, std::size_t n, unaligned_mode) const noexcept;
+
         template <class U>
         XSIMD_NO_DISCARD static XSIMD_INLINE batch load_aligned(U const* mem) noexcept;
         template <class U>
@@ -167,6 +173,12 @@ namespace xsimd
         XSIMD_NO_DISCARD static XSIMD_INLINE batch load(T const* mem, batch_bool<T, A> mask, Mode = {}) noexcept;
         template <class U>
         XSIMD_NO_DISCARD static XSIMD_INLINE batch load(U const* mem, stream_mode) noexcept;
+
+        // Head/tail: contiguous prefix/suffix variants of the runtime-mask load.
+        XSIMD_NO_DISCARD static XSIMD_INLINE batch load_head(T const* mem, std::size_t n, aligned_mode) noexcept;
+        XSIMD_NO_DISCARD static XSIMD_INLINE batch load_head(T const* mem, std::size_t n, unaligned_mode) noexcept;
+        XSIMD_NO_DISCARD static XSIMD_INLINE batch load_tail(T const* mem, std::size_t n, aligned_mode) noexcept;
+        XSIMD_NO_DISCARD static XSIMD_INLINE batch load_tail(T const* mem, std::size_t n, unaligned_mode) noexcept;
 
         template <class U, class V>
         XSIMD_NO_DISCARD static XSIMD_INLINE batch gather(U const* src, batch<V, arch_type> const& index) noexcept;
@@ -767,6 +779,106 @@ namespace xsimd
     {
         detail::static_check_supported_config<T, A>();
         kernel::store_masked<A>(mem, *this, mask, mode, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> batch<T, A>::load_head(T const* mem, std::size_t n, aligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return broadcast<T>(0);
+        if (n >= size)
+            return load_aligned(mem);
+        return kernel::load_head<A>(mem, n, aligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> batch<T, A>::load_head(T const* mem, std::size_t n, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return broadcast<T>(0);
+        if (n >= size)
+            return load_unaligned(mem);
+        return kernel::load_head<A>(mem, n, unaligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> batch<T, A>::load_tail(T const* mem, std::size_t n, aligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return broadcast<T>(0);
+        if (n >= size)
+            return load_aligned(mem);
+        return kernel::load_tail<A>(mem, n, aligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> batch<T, A>::load_tail(T const* mem, std::size_t n, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return broadcast<T>(0);
+        if (n >= size)
+            return load_unaligned(mem);
+        return kernel::load_tail<A>(mem, n, unaligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE void batch<T, A>::store_head(T* mem, std::size_t n, aligned_mode) const noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return;
+        if (n >= size)
+        {
+            store_aligned(mem);
+            return;
+        }
+        kernel::store_head<A>(mem, n, *this, aligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE void batch<T, A>::store_head(T* mem, std::size_t n, unaligned_mode) const noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return;
+        if (n >= size)
+        {
+            store_unaligned(mem);
+            return;
+        }
+        kernel::store_head<A>(mem, n, *this, unaligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE void batch<T, A>::store_tail(T* mem, std::size_t n, aligned_mode) const noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return;
+        if (n >= size)
+        {
+            store_aligned(mem);
+            return;
+        }
+        kernel::store_tail<A>(mem, n, *this, aligned_mode {}, A {});
+    }
+
+    template <class T, class A>
+    XSIMD_INLINE void batch<T, A>::store_tail(T* mem, std::size_t n, unaligned_mode) const noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        if (n == 0)
+            return;
+        if (n >= size)
+        {
+            store_unaligned(mem);
+            return;
+        }
+        kernel::store_tail<A>(mem, n, *this, unaligned_mode {}, A {});
     }
 
     template <class T, class A>

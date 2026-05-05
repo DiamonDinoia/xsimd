@@ -1604,6 +1604,51 @@ namespace xsimd
     /**
      * @ingroup batch_data_transfer
      *
+     * Loads the prefix \c mem[0, n) into the low \c n lanes; remaining
+     * lanes are zero. Sugar for a runtime-mask load with mask
+     * <tt>(1 << n) - 1</tt>; same contract — only \c mem[0, n) is read.
+     * \c n is clamped to \c batch::size.
+     */
+    template <class T, class A = default_arch>
+    XSIMD_INLINE batch<T, A> load_head(T const* mem, std::size_t n, aligned_mode = {}) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return batch<T, A>::load_head(mem, n, aligned_mode {});
+    }
+
+    /// \overload
+    template <class T, class A = default_arch>
+    XSIMD_INLINE batch<T, A> load_head(T const* mem, std::size_t n, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return batch<T, A>::load_head(mem, n, unaligned_mode {});
+    }
+
+    /**
+     * @ingroup batch_data_transfer
+     *
+     * Loads \c mem[0, n) into the high \c n lanes (lanes
+     * <tt>[size - n, size)</tt>); remaining low lanes are zero. Same
+     * contract as \ref load_head. \c n is clamped to \c batch::size.
+     */
+    template <class T, class A = default_arch>
+    XSIMD_INLINE batch<T, A> load_tail(T const* mem, std::size_t n, aligned_mode = {}) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return batch<T, A>::load_tail(mem, n, aligned_mode {});
+    }
+
+    /// \overload
+    template <class T, class A = default_arch>
+    XSIMD_INLINE batch<T, A> load_tail(T const* mem, std::size_t n, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return batch<T, A>::load_tail(mem, n, unaligned_mode {});
+    }
+
+    /**
+     * @ingroup batch_data_transfer
+     *
      * Creates a batch from the buffer \c ptr. The
      * memory needs to be aligned.
      * @param ptr the memory buffer to read
@@ -2745,6 +2790,50 @@ namespace xsimd
     {
         detail::static_check_supported_config<T, A>();
         val.store(mem, mask, unaligned_mode {});
+    }
+
+    /**
+     * @ingroup batch_data_transfer
+     *
+     * Stores the low \c n lanes of \c val to \c mem[0, n). Sugar for a
+     * runtime-mask store with mask <tt>(1 << n) - 1</tt>; same contract —
+     * only \c mem[0, n) is written. \c n is clamped to \c batch::size.
+     */
+    template <class T, class A>
+    XSIMD_INLINE void store_head(T* mem, std::size_t n, batch<T, A> const& val, aligned_mode = {}) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        val.store_head(mem, n, aligned_mode {});
+    }
+
+    /// \overload
+    template <class T, class A>
+    XSIMD_INLINE void store_head(T* mem, std::size_t n, batch<T, A> const& val, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        val.store_head(mem, n, unaligned_mode {});
+    }
+
+    /**
+     * @ingroup batch_data_transfer
+     *
+     * Stores the high \c n lanes (lanes <tt>[size - n, size)</tt>) of
+     * \c val to \c mem[0, n). Same contract as \ref store_head. \c n is
+     * clamped to \c batch::size.
+     */
+    template <class T, class A>
+    XSIMD_INLINE void store_tail(T* mem, std::size_t n, batch<T, A> const& val, aligned_mode = {}) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        val.store_tail(mem, n, aligned_mode {});
+    }
+
+    /// \overload
+    template <class T, class A>
+    XSIMD_INLINE void store_tail(T* mem, std::size_t n, batch<T, A> const& val, unaligned_mode) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        val.store_tail(mem, n, unaligned_mode {});
     }
 
     /**

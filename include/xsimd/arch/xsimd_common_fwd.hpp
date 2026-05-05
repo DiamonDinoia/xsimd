@@ -102,9 +102,35 @@ namespace xsimd
         template <class A, bool... Values, class Mode>
         XSIMD_INLINE std::enable_if_t<types::has_simd_register<double, A>::value> store_masked(uint64_t*, batch<uint64_t, A> const&, batch_bool_constant<uint64_t, A, Values...>, Mode, requires_arch<A>) noexcept;
 
+        // Head/tail: contiguous prefix/suffix variants of the masked load/store.
+        template <class A, class T, class Mode>
+        XSIMD_INLINE batch<T, A> load_head(T const* mem, std::size_t n, Mode, requires_arch<common>) noexcept;
+        template <class A, class T, class Mode>
+        XSIMD_INLINE batch<T, A> load_tail(T const* mem, std::size_t n, Mode, requires_arch<common>) noexcept;
+        template <class A, class T, class Mode>
+        XSIMD_INLINE void store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<common>) noexcept;
+        template <class A, class T, class Mode>
+        XSIMD_INLINE void store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<common>) noexcept;
+
         // Forward declarations for pack-level helpers
         namespace detail
         {
+            // Pointer offset helper used by load_tail / store_tail across all
+            // architectures. Defined here (and only here) so per-arch headers
+            // included before xsimd_common_memory.hpp can call it. Routes
+            // through ``uintptr_t`` to dodge ``-Warray-bounds`` on small
+            // buffers.
+            template <class T>
+            XSIMD_INLINE T const* offset_back(T const* p, std::size_t k) noexcept
+            {
+                return reinterpret_cast<T const*>(reinterpret_cast<std::uintptr_t>(p) - k * sizeof(T));
+            }
+            template <class T>
+            XSIMD_INLINE T* offset_back(T* p, std::size_t k) noexcept
+            {
+                return reinterpret_cast<T*>(reinterpret_cast<std::uintptr_t>(p) - k * sizeof(T));
+            }
+
             template <class T>
             XSIMD_INLINE void reassociation_barrier(T& x, const char*) noexcept;
             template <class T, class A>

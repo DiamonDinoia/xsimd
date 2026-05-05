@@ -60,6 +60,15 @@ namespace xsimd
                           bool M8, bool M9, bool M10, bool M11, bool M12, bool M13, bool M14, bool M15>
                 XSIMD_INLINE svbool_t pmask() noexcept { return svdupq_b8(M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13, M14, M15); }
 
+                // whilelt-based predicate of the first n lanes (head)
+                XSIMD_INLINE svbool_t whilelt_impl(uint64_t n, index<1>) noexcept { return svwhilelt_b8(uint64_t(0), n); }
+                XSIMD_INLINE svbool_t whilelt_impl(uint64_t n, index<2>) noexcept { return svwhilelt_b16(uint64_t(0), n); }
+                XSIMD_INLINE svbool_t whilelt_impl(uint64_t n, index<4>) noexcept { return svwhilelt_b32(uint64_t(0), n); }
+                XSIMD_INLINE svbool_t whilelt_impl(uint64_t n, index<8>) noexcept { return svwhilelt_b64(uint64_t(0), n); }
+
+                template <class T>
+                XSIMD_INLINE svbool_t whilelt(uint64_t n) noexcept { return whilelt_impl(n, index<sizeof(T)> {}); }
+
                 // count active lanes in a predicate
                 XSIMD_INLINE uint64_t pcount_impl(svbool_t p, index<1>) noexcept { return svcntp_b8(p, p); }
                 XSIMD_INLINE uint64_t pcount_impl(svbool_t p, index<2>) noexcept { return svcntp_b16(p, p); }
@@ -125,6 +134,27 @@ namespace xsimd
             return svld1(mask, reinterpret_cast<map_to_sized_type_t<T> const*>(mem));
         }
 
+        // load_head / load_tail (whilelt predicate, skips from_mask round-trip).
+        // Caller guarantees 1 <= n < size.
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<sve>) noexcept
+        {
+            const svbool_t pred = detail_sve::whilelt<T>(static_cast<uint64_t>(n));
+            return svld1(pred, reinterpret_cast<map_to_sized_type_t<T> const*>(mem));
+        }
+
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<sve>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const svbool_t pred = svnot_z(detail_sve::ptrue<T>(),
+                                          detail_sve::whilelt<T>(static_cast<uint64_t>(size - n)));
+            const auto base = detail::offset_back(mem, size - n);
+            return svld1(pred, reinterpret_cast<map_to_sized_type_t<T> const*>(base));
+        }
+
         // load_complex
         template <class A, class T, detail::enable_floating_point_t<T> = 0>
         XSIMD_INLINE batch<std::complex<T>, A> load_complex_aligned(std::complex<T> const* mem, convert<std::complex<T>>, requires_arch<sve>) noexcept
@@ -174,6 +204,26 @@ namespace xsimd
         XSIMD_INLINE void store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, Mode, requires_arch<sve>) noexcept
         {
             svst1(mask, reinterpret_cast<map_to_sized_type_t<T>*>(mem), src);
+        }
+
+        // store_head / store_tail (whilelt predicate). Caller guarantees 1 <= n < size.
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<sve>) noexcept
+        {
+            const svbool_t pred = detail_sve::whilelt<T>(static_cast<uint64_t>(n));
+            svst1(pred, reinterpret_cast<map_to_sized_type_t<T>*>(mem), src);
+        }
+
+        template <class A, class T, class Mode, detail::enable_arithmetic_t<T> = 0>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<sve>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const svbool_t pred = svnot_z(detail_sve::ptrue<T>(),
+                                          detail_sve::whilelt<T>(static_cast<uint64_t>(size - n)));
+            const auto base = detail::offset_back(mem, size - n);
+            svst1(pred, reinterpret_cast<map_to_sized_type_t<T>*>(base), src);
         }
 
         // store_complex

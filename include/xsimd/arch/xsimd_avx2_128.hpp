@@ -176,6 +176,159 @@ namespace xsimd
             detail::maskstore_128(reinterpret_cast<int_t*>(mem), __m128i(mask), __m128i(src));
         }
 
+        // 128-bit head/tail. avx2_128 has integer compares, so the mask is
+        // built integer-domain and feeds vmaskmov{ps,pd} or vpmaskmovd/q
+        // directly.
+        namespace detail
+        {
+            XSIMD_INLINE __m128i headtail_lanemask128_head_32(std::size_t n) noexcept
+            {
+                alignas(16) static constexpr int32_t iota[4] = { 0, 1, 2, 3 };
+                return _mm_cmpgt_epi32(_mm_set1_epi32(static_cast<int32_t>(n)),
+                                       _mm_load_si128(reinterpret_cast<__m128i const*>(iota)));
+            }
+            XSIMD_INLINE __m128i headtail_lanemask128_tail_32(std::size_t n) noexcept
+            {
+                alignas(16) static constexpr int32_t iota[4] = { 0, 1, 2, 3 };
+                return _mm_cmpgt_epi32(_mm_load_si128(reinterpret_cast<__m128i const*>(iota)),
+                                       _mm_set1_epi32(static_cast<int32_t>(4 - n) - 1));
+            }
+            XSIMD_INLINE __m128i headtail_lanemask128_head_64(std::size_t n) noexcept
+            {
+                alignas(16) static constexpr int64_t iota[2] = { 0, 1 };
+                return _mm_cmpgt_epi64(_mm_set1_epi64x(static_cast<int64_t>(n)),
+                                       _mm_load_si128(reinterpret_cast<__m128i const*>(iota)));
+            }
+            XSIMD_INLINE __m128i headtail_lanemask128_tail_64(std::size_t n) noexcept
+            {
+                alignas(16) static constexpr int64_t iota[2] = { 0, 1 };
+                return _mm_cmpgt_epi64(_mm_load_si128(reinterpret_cast<__m128i const*>(iota)),
+                                       _mm_set1_epi64x(static_cast<int64_t>(2 - n) - 1));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                return _mm_maskload_epi32(reinterpret_cast<const int*>(mem), detail::headtail_lanemask128_head_32(n));
+            }
+            else
+            {
+                return _mm_maskload_epi64(reinterpret_cast<const long long*>(mem), detail::headtail_lanemask128_head_64(n));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto base = detail::offset_back(mem, size - n);
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                return _mm_maskload_epi32(reinterpret_cast<const int*>(base), detail::headtail_lanemask128_tail_32(n));
+            }
+            else
+            {
+                return _mm_maskload_epi64(reinterpret_cast<const long long*>(base), detail::headtail_lanemask128_tail_64(n));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                _mm_maskstore_epi32(reinterpret_cast<int*>(mem), detail::headtail_lanemask128_head_32(n), src);
+            }
+            else
+            {
+                _mm_maskstore_epi64(reinterpret_cast<long long*>(mem), detail::headtail_lanemask128_head_64(n), src);
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto base = detail::offset_back(mem, size - n);
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                _mm_maskstore_epi32(reinterpret_cast<int*>(base), detail::headtail_lanemask128_tail_32(n), src);
+            }
+            else
+            {
+                _mm_maskstore_epi64(reinterpret_cast<long long*>(base), detail::headtail_lanemask128_tail_64(n), src);
+            }
+        }
+
+        // float/double on avx2_128: integer-domain mask + maskload/store ps/pd.
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_head(float const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            return _mm_maskload_ps(mem, detail::headtail_lanemask128_head_32(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_head(double const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            return _mm_maskload_pd(mem, detail::headtail_lanemask128_head_64(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_tail(float const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            return _mm_maskload_ps(detail::offset_back(mem, size - n),
+                                   detail::headtail_lanemask128_tail_32(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_tail(double const* mem, std::size_t n, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            return _mm_maskload_pd(detail::offset_back(mem, size - n),
+                                   detail::headtail_lanemask128_tail_64(n));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            _mm_maskstore_ps(mem, detail::headtail_lanemask128_head_32(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            _mm_maskstore_pd(mem, detail::headtail_lanemask128_head_64(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            _mm_maskstore_ps(detail::offset_back(mem, size - n),
+                             detail::headtail_lanemask128_tail_32(n), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx2_128>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            _mm_maskstore_pd(detail::offset_back(mem, size - n),
+                             detail::headtail_lanemask128_tail_64(n), src);
+        }
+
         // gather
         template <class T, class A, class U, detail::enable_sized_integral_t<T, 4> = 0, detail::enable_sized_integral_t<U, 4> = 0>
         XSIMD_INLINE batch<T, A> gather(batch<T, A> const&, T const* src, batch<U, A> const& index,

@@ -262,15 +262,27 @@ namespace xsimd
             XSIMD_INLINE __m512d load_masked(const double* mem, uint64_t m, aligned_mode) noexcept { return _mm512_maskz_load_pd((__mmask8)m, mem); }
             XSIMD_INLINE __m512d load_masked(const double* mem, uint64_t m, unaligned_mode) noexcept { return _mm512_maskz_loadu_pd((__mmask8)m, mem); }
 
-            XSIMD_INLINE __m512i load_masked(const int32_t* mem, uint64_t m, aligned_mode) noexcept { return _mm512_maskz_load_epi32((__mmask16)m, mem); }
-            XSIMD_INLINE __m512i load_masked(const int32_t* mem, uint64_t m, unaligned_mode) noexcept { return _mm512_maskz_loadu_epi32((__mmask16)m, mem); }
-            XSIMD_INLINE __m512i load_masked(const uint32_t* mem, uint64_t m, aligned_mode) noexcept { return _mm512_maskz_load_epi32((__mmask16)m, reinterpret_cast<const int32_t*>(mem)); }
-            XSIMD_INLINE __m512i load_masked(const uint32_t* mem, uint64_t m, unaligned_mode) noexcept { return _mm512_maskz_loadu_epi32((__mmask16)m, reinterpret_cast<const int32_t*>(mem)); }
-
-            XSIMD_INLINE __m512i load_masked(const int64_t* mem, uint64_t m, aligned_mode) noexcept { return _mm512_maskz_load_epi64((__mmask8)m, mem); }
-            XSIMD_INLINE __m512i load_masked(const int64_t* mem, uint64_t m, unaligned_mode) noexcept { return _mm512_maskz_loadu_epi64((__mmask8)m, mem); }
-            XSIMD_INLINE __m512i load_masked(const uint64_t* mem, uint64_t m, aligned_mode) noexcept { return _mm512_maskz_load_epi64((__mmask8)m, reinterpret_cast<const int64_t*>(mem)); }
-            XSIMD_INLINE __m512i load_masked(const uint64_t* mem, uint64_t m, unaligned_mode) noexcept { return _mm512_maskz_loadu_epi64((__mmask8)m, reinterpret_cast<const int64_t*>(mem)); }
+            // Integer overloads dispatch by sizeof(T) so any 4- or 8-byte integer type
+            // (incl. MSVC's `unsigned long` which is neither uint32_t nor uint64_t) maps
+            // to the right epi32/epi64 intrinsic. Width selection happens inside the
+            // body to avoid putting the __m512i attributed type in an SFINAE expression
+            // (which triggers -Wignored-attributes on gcc).
+            template <class T, class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+            XSIMD_INLINE __m512i load_masked(const T* mem, uint64_t m, aligned_mode) noexcept
+            {
+                XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+                    return _mm512_maskz_load_epi32((__mmask16)m, reinterpret_cast<const int32_t*>(mem));
+                else
+                    return _mm512_maskz_load_epi64((__mmask8)m, reinterpret_cast<const int64_t*>(mem));
+            }
+            template <class T, class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+            XSIMD_INLINE __m512i load_masked(const T* mem, uint64_t m, unaligned_mode) noexcept
+            {
+                XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+                    return _mm512_maskz_loadu_epi32((__mmask16)m, reinterpret_cast<const int32_t*>(mem));
+                else
+                    return _mm512_maskz_loadu_epi64((__mmask8)m, reinterpret_cast<const int64_t*>(mem));
+            }
 
             // Register-level AVX2-forward helpers: accept 256-bit halves and return 512-bit
             XSIMD_INLINE __m512 load_masked(__m256 lo) noexcept { return zero_extend(lo); }
@@ -286,17 +298,72 @@ namespace xsimd
             XSIMD_INLINE void store_masked(double* mem, __m512d src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_pd(mem, (__mmask8)m, src); }
             XSIMD_INLINE void store_masked(double* mem, __m512d src, uint64_t m, unaligned_mode) noexcept { _mm512_mask_storeu_pd(mem, (__mmask8)m, src); }
 
-            XSIMD_INLINE void store_masked(int32_t* mem, __m512i src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_epi32(mem, (__mmask16)m, src); }
-            XSIMD_INLINE void store_masked(int32_t* mem, __m512i src, uint64_t m, unaligned_mode) noexcept { _mm512_mask_storeu_epi32(mem, (__mmask16)m, src); }
-            XSIMD_INLINE void store_masked(uint32_t* mem, __m512i src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_epi32(reinterpret_cast<int32_t*>(mem), (__mmask16)m, src); }
-            XSIMD_INLINE void store_masked(uint32_t* mem, __m512i src, uint64_t m, unaligned_mode) noexcept { _mm512_mask_storeu_epi32(reinterpret_cast<int32_t*>(mem), (__mmask16)m, src); }
-
-            XSIMD_INLINE void store_masked(int64_t* mem, __m512i src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_epi64(mem, (__mmask8)m, src); }
-            XSIMD_INLINE void store_masked(int64_t* mem, __m512i src, uint64_t m, unaligned_mode) noexcept { _mm512_mask_storeu_epi64(mem, (__mmask8)m, src); }
-            XSIMD_INLINE void store_masked(uint64_t* mem, __m512i src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_epi64(reinterpret_cast<int64_t*>(mem), (__mmask8)m, src); }
-            XSIMD_INLINE void store_masked(uint64_t* mem, __m512i src, uint64_t m, unaligned_mode) noexcept { _mm512_mask_storeu_epi64(reinterpret_cast<int64_t*>(mem), (__mmask8)m, src); }
+            template <class T, class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+            XSIMD_INLINE void store_masked(T* mem, __m512i src, uint64_t m, aligned_mode) noexcept
+            {
+                XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+                    _mm512_mask_store_epi32(reinterpret_cast<int32_t*>(mem), (__mmask16)m, src);
+                else
+                    _mm512_mask_store_epi64(reinterpret_cast<int64_t*>(mem), (__mmask8)m, src);
+            }
+            template <class T, class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+            XSIMD_INLINE void store_masked(T* mem, __m512i src, uint64_t m, unaligned_mode) noexcept
+            {
+                XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+                    _mm512_mask_storeu_epi32(reinterpret_cast<int32_t*>(mem), (__mmask16)m, src);
+                else
+                    _mm512_mask_storeu_epi64(reinterpret_cast<int64_t*>(mem), (__mmask8)m, src);
+            }
 
         } // namespace detail
+
+        // load_head / load_tail / store_head / store_tail (32/64-bit T)
+        // Build a contiguous-prefix k-mask directly from `n` (caller guarantees
+        // 1 <= n < size; the n==0 / n>=size endpoints are short-circuited at
+        // batch::load_head/tail) and dispatch to the maskz/mask intrinsic.
+        // 8/16-bit T is handled in xsimd_avx512bw.hpp; everything else falls
+        // back to the generic common-path.
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<(sizeof(T) >= 4)>>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<avx512f>) noexcept
+        {
+            const uint64_t m = (uint64_t(1) << n) - 1;
+            return detail::load_masked(mem, m, Mode {});
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<(sizeof(T) >= 4)>>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<avx512f>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const uint64_t m = ((uint64_t(1) << n) - 1) << (size - n);
+            // The shifted base is generally not vector-aligned even when mem
+            // is, so always use the unaligned masked load.
+            return detail::load_masked(detail::offset_back(mem, size - n), m, unaligned_mode {});
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<(sizeof(T) >= 4)>>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx512f>) noexcept
+        {
+            const uint64_t m = (uint64_t(1) << n) - 1;
+            detail::store_masked(mem, src, m, Mode {});
+        }
+
+        template <class A, class T, class Mode,
+                  typename = std::enable_if_t<(sizeof(T) >= 4)>>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx512f>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const uint64_t m = ((uint64_t(1) << n) - 1) << (size - n);
+            // Shifted base is generally not vector-aligned; always use the
+            // unaligned masked store.
+            detail::store_masked(detail::offset_back(mem, size - n), src, m, unaligned_mode {});
+        }
 
         template <class A, class T, bool... Values, class Mode,
                   typename = std::enable_if_t<(sizeof(T) >= 4)>>

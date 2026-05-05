@@ -1089,6 +1089,170 @@ namespace xsimd
             }
         }
 
+        // load/store_head/_tail (256-bit). Plain AVX has no 256-bit integer
+        // compare, so the lane mask is built in float space against an iota
+        // constant; caller guarantees 1 <= n < size, making the float<->int
+        // conversion exact. Integer T routes through vmaskmovps/pd via a
+        // float-bitcast pointer to avoid the common-path LUT fallback.
+        namespace detail
+        {
+            XSIMD_INLINE __m256 headtail_lanemask256_head_ps(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr float iota[8] = { 0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f };
+                return _mm256_cmp_ps(_mm256_load_ps(iota),
+                                     _mm256_set1_ps(static_cast<float>(n)), _CMP_LT_OQ);
+            }
+            XSIMD_INLINE __m256 headtail_lanemask256_tail_ps(std::size_t n_skip) noexcept
+            {
+                alignas(32) static constexpr float iota[8] = { 0.f, 1.f, 2.f, 3.f, 4.f, 5.f, 6.f, 7.f };
+                return _mm256_cmp_ps(_mm256_load_ps(iota),
+                                     _mm256_set1_ps(static_cast<float>(n_skip)), _CMP_GE_OQ);
+            }
+            XSIMD_INLINE __m256d headtail_lanemask256_head_pd(std::size_t n) noexcept
+            {
+                alignas(32) static constexpr double iota[4] = { 0., 1., 2., 3. };
+                return _mm256_cmp_pd(_mm256_load_pd(iota),
+                                     _mm256_set1_pd(static_cast<double>(n)), _CMP_LT_OQ);
+            }
+            XSIMD_INLINE __m256d headtail_lanemask256_tail_pd(std::size_t n_skip) noexcept
+            {
+                alignas(32) static constexpr double iota[4] = { 0., 1., 2., 3. };
+                return _mm256_cmp_pd(_mm256_load_pd(iota),
+                                     _mm256_set1_pd(static_cast<double>(n_skip)), _CMP_GE_OQ);
+            }
+        }
+
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_head(float const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            return _mm256_maskload_ps(mem, _mm256_castps_si256(detail::headtail_lanemask256_head_ps(n)));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_head(double const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            return _mm256_maskload_pd(mem, _mm256_castpd_si256(detail::headtail_lanemask256_head_pd(n)));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<float, A>
+        load_tail(float const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            return _mm256_maskload_ps(detail::offset_back(mem, size - n),
+                                      _mm256_castps_si256(detail::headtail_lanemask256_tail_ps(size - n)));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE batch<double, A>
+        load_tail(double const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            return _mm256_maskload_pd(detail::offset_back(mem, size - n),
+                                      _mm256_castpd_si256(detail::headtail_lanemask256_tail_pd(size - n)));
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            _mm256_maskstore_ps(mem, _mm256_castps_si256(detail::headtail_lanemask256_head_ps(n)), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_head(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            _mm256_maskstore_pd(mem, _mm256_castpd_si256(detail::headtail_lanemask256_head_pd(n)), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(float* mem, std::size_t n, batch<float, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<float, A>::size;
+            _mm256_maskstore_ps(detail::offset_back(mem, size - n),
+                                _mm256_castps_si256(detail::headtail_lanemask256_tail_ps(size - n)), src);
+        }
+        template <class A, class Mode>
+        XSIMD_INLINE void
+        store_tail(double* mem, std::size_t n, batch<double, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<double, A>::size;
+            _mm256_maskstore_pd(detail::offset_back(mem, size - n),
+                                _mm256_castpd_si256(detail::headtail_lanemask256_tail_pd(size - n)), src);
+        }
+
+        // Integer T (4 or 8 bytes): build the FP-domain mask, route through
+        // vmaskmovps/pd via a float-bitcast pointer.
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_head(T const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                const auto m = _mm256_castps_si256(detail::headtail_lanemask256_head_ps(n));
+                return _mm256_castps_si256(_mm256_maskload_ps(reinterpret_cast<float const*>(mem), m));
+            }
+            else
+            {
+                const auto m = _mm256_castpd_si256(detail::headtail_lanemask256_head_pd(n));
+                return _mm256_castpd_si256(_mm256_maskload_pd(reinterpret_cast<double const*>(mem), m));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE batch<T, A>
+        load_tail(T const* mem, std::size_t n, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto base = detail::offset_back(mem, size - n);
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                const auto m = _mm256_castps_si256(detail::headtail_lanemask256_tail_ps(size - n));
+                return _mm256_castps_si256(_mm256_maskload_ps(reinterpret_cast<float const*>(base), m));
+            }
+            else
+            {
+                const auto m = _mm256_castpd_si256(detail::headtail_lanemask256_tail_pd(size - n));
+                return _mm256_castpd_si256(_mm256_maskload_pd(reinterpret_cast<double const*>(base), m));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_head(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                const auto m = _mm256_castps_si256(detail::headtail_lanemask256_head_ps(n));
+                _mm256_maskstore_ps(reinterpret_cast<float*>(mem), m, _mm256_castsi256_ps(src));
+            }
+            else
+            {
+                const auto m = _mm256_castpd_si256(detail::headtail_lanemask256_head_pd(n));
+                _mm256_maskstore_pd(reinterpret_cast<double*>(mem), m, _mm256_castsi256_pd(src));
+            }
+        }
+
+        template <class A, class T, class Mode,
+                  class = std::enable_if_t<std::is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8)>>
+        XSIMD_INLINE void
+        store_tail(T* mem, std::size_t n, batch<T, A> const& src, Mode, requires_arch<avx>) noexcept
+        {
+            constexpr std::size_t size = batch<T, A>::size;
+            const auto base = detail::offset_back(mem, size - n);
+            XSIMD_IF_CONSTEXPR(sizeof(T) == 4)
+            {
+                const auto m = _mm256_castps_si256(detail::headtail_lanemask256_tail_ps(size - n));
+                _mm256_maskstore_ps(reinterpret_cast<float*>(base), m, _mm256_castsi256_ps(src));
+            }
+            else
+            {
+                const auto m = _mm256_castpd_si256(detail::headtail_lanemask256_tail_pd(size - n));
+                _mm256_maskstore_pd(reinterpret_cast<double*>(base), m, _mm256_castsi256_pd(src));
+            }
+        }
+
         // lt
         template <class A>
         XSIMD_INLINE batch_bool<float, A> lt(batch<float, A> const& self, batch<float, A> const& other, requires_arch<avx>) noexcept
