@@ -27,6 +27,28 @@ static_assert(proto::all_native<proto::add_t, xsimd::avx512bw>(), "avx512bw is f
 #endif
 static_assert(proto::all_native<proto::add_t, xsimd::sse2>(), "sse2 is fully native");
 
+// Fallback tiers are visible and asserted, not implicit.
+static_assert(proto::tier_of<proto::add_t, float, xsimd::sse2>() == proto::tier::native, "");
+#if XSIMD_WITH_AVX
+static_assert(proto::tier_of<proto::add_t, int8_t, xsimd::avx>() == proto::tier::halves, "");
+#endif
+// An op with no table anywhere falls to the elementwise tier on sse2. Op tag and
+// its scalar form must share a namespace, so ADL finds the registration.
+namespace probe
+{
+    struct mul_t
+    {
+    };
+    template <class T>
+    constexpr auto scalar(mul_t, proto::tag<T>) noexcept
+    {
+        return [](T x, T y) noexcept { return T(x * y); };
+    }
+}
+static_assert(proto::tier_of<probe::mul_t, float, xsimd::sse2>() == proto::tier::lanes, "");
+static_assert(proto::covers<probe::mul_t, xsimd::sse2>(), "elementwise tier covers everything");
+static_assert(!proto::all_native<probe::mul_t, xsimd::sse2>(), "elementwise is not native");
+
 template <class T>
 using B = xsimd::batch<T, A>;
 
@@ -39,8 +61,11 @@ GEN(double, f64)
 GEN(int8_t, i8)
 GEN(uint8_t, u8)
 GEN(int16_t, i16)
+GEN(uint16_t, u16)
 GEN(int32_t, i32)
+GEN(uint32_t, u32)
 GEN(int64_t, i64)
+GEN(uint64_t, u64)
 
 int main()
 {

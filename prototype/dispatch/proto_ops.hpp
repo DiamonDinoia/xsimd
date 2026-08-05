@@ -11,6 +11,13 @@ namespace proto
     {
     };
 
+    /// Scalar form, used by the elementwise fallback tier.
+    template <class T>
+    constexpr auto scalar(add_t, tag<T>) noexcept
+    {
+        return [](T x, T y) noexcept { return T(x + y); };
+    }
+
     template <class T, class A>
     XSIMD_INLINE batch<T, A> add(batch<T, A> a, batch<T, A> b) noexcept
     {

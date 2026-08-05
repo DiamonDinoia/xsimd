@@ -7,8 +7,14 @@
 //
 // returning by_type<T>(...) -- <f32, f64, i8, i16, i32, i64>. A missing entry
 // is `nullptr`; an arch with no overload at all is simply not registered. Both
-// are serviced by splitting the batch in halves and recursing, or fail with a
-// static_assert naming T and A.
+// are serviced by the fallback tiers below, or fail with a static_assert naming
+// T and A.
+//
+// Fallback tiers, tried in order (see `enum class tier`):
+//     native  an intrinsic registered for this element type and width
+//     halves  split into two narrower batches and recurse
+//     lanes   the op's scalar form, registered as scalar(op_tag, tag<T>)
+//     none    hard error
 //
 // Overload resolution on the arch tag does width selection and refinement
 // (avx2 refines avx, avx512bw refines avx512f) for free, so there is no central
@@ -83,6 +89,13 @@ namespace proto
             return 2 * type_slot<T>() - 2 + std::is_unsigned_v<T>;
     }
 
+    static_assert(type_slot_signed<float>() == 0 && type_slot_signed<double>() == 1
+                      && type_slot_signed<int8_t>() == 2 && type_slot_signed<uint8_t>() == 3
+                      && type_slot_signed<int16_t>() == 4 && type_slot_signed<uint16_t>() == 5
+                      && type_slot_signed<int32_t>() == 6 && type_slot_signed<uint32_t>() == 7
+                      && type_slot_signed<int64_t>() == 8 && type_slot_signed<uint64_t>() == 9,
+                  "type_slot_signed must map the ten element types to distinct ordered slots");
+
     /// Table indexed by element type: <f32, f64, i8, u8, i16, u16, i32, u32, i64, u64>.
     template <class T, class... Fs>
     XSIMD_INLINE constexpr auto by_type_signed(Fs... fs) noexcept
@@ -116,12 +129,39 @@ namespace proto
         auto lo = f(half(d::lower_half(a.data)), half(d::lower_half(b.data))).data;
         auto hi = f(half(d::upper_half(a.data)), half(d::upper_half(b.data))).data;
         if constexpr (sizeof(lo) == 16)
+        {
             return d::merge_sse(lo, hi);
+        }
 #if XSIMD_WITH_AVX512F
-        else
+        else if constexpr (sizeof(lo) == 32)
+        {
             return d::merge_avx(lo, hi);
+        }
 #endif
+        else
+        {
+            unsupported<T, A>();
+        }
+#else
+        (void)f, (void)a, (void)b;
+        static_assert(!std::is_same_v<A, A>, "halving requires AVX: no 256/512-bit register to split");
 #endif
+    }
+
+    /// Elementwise fallback: run the op's scalar form over the lanes. Reached only
+    /// when no register-level intrinsic exists at this width and the batch cannot
+    /// be split any further (e.g. an unregistered element type on sse2).
+    template <class Op, class T, class A>
+    XSIMD_INLINE batch<T, A> apply_scalar(batch<T, A> a, batch<T, A> b) noexcept
+    {
+        constexpr std::size_t n = batch<T, A>::size;
+        alignas(A::alignment()) T xa[n], xb[n];
+        a.store_aligned(xa);
+        b.store_aligned(xb);
+        constexpr auto f = scalar(Op {}, tag<T> {});
+        for (std::size_t i = 0; i < n; ++i)
+            xa[i] = f(xa[i], xb[i]);
+        return batch<T, A>::load_aligned(xa);
     }
 
     // -------------------------------------------------------------- dispatch
@@ -152,27 +192,63 @@ namespace proto
     template <class Op, class T, class A>
     inline constexpr bool has_native_v = has_native<Op, T, A>();
 
-    /// Pick the native intrinsic, else split in halves and recurse, else fail.
+    /// Is a scalar form of Op registered for T?
+    template <class Op, class T, class = void>
+    inline constexpr bool has_scalar_v = false;
+
+    template <class Op, class T>
+    inline constexpr bool has_scalar_v<Op, T, std::void_t<decltype(scalar(Op {}, tag<T> {}))>> = true;
+
+    /// Fallback tiers, in the order the dispatcher tries them.
+    enum class tier
+    {
+        native, ///< an intrinsic registered for this element type and width
+        halves, ///< split into two narrower batches and recurse
+        lanes,  ///< the op's scalar form, one element at a time
+        none,   ///< nothing applies: hard error
+    };
+
+    template <class Op, class T, class A>
+    constexpr tier tier_of() noexcept
+    {
+        if constexpr (has_native_v<Op, T, A>)
+            return tier::native;
+        else if constexpr (splittable_v<A>)
+            return tier::halves;
+        else if constexpr (has_scalar_v<Op, T>)
+            return tier::lanes;
+        else
+            return tier::none;
+    }
+
+    /// Pick the native intrinsic, else split in halves, else go elementwise, else fail.
     template <class Op, class T, class A>
     XSIMD_INLINE batch<T, A> apply(batch<T, A> a, batch<T, A> b) noexcept
     {
-        if constexpr (has_native_v<Op, T, A>)
+        constexpr tier t = tier_of<Op, T, A>();
+
+        // Anything below tier::native is correct but slower than a register-level
+        // intrinsic, and silent. Define PROTO_NO_IMPLICIT_FALLBACK to turn every
+        // such degradation -- halving or elementwise -- into an error naming the
+        // (op, T, arch) triple that is not running natively.
+#ifdef PROTO_NO_IMPLICIT_FALLBACK
+        static_assert(t == tier::native,
+                      "implicit fallback: no native intrinsic registered for this element type and width");
+#endif
+
+        if constexpr (t == tier::native)
         {
             return batch<T, A> { native_v<Op, T, A>(a, b) };
         }
-        else if constexpr (splittable_v<A>)
+        else if constexpr (t == tier::halves)
         {
-            // Implicit fallback: no intrinsic registered for this width, so run the
-            // op on the two halves. Correct, but slower than a native form -- define
-            // PROTO_NO_IMPLICIT_FALLBACK to turn every such degradation into an error
-            // and see exactly which (op, T, arch) triples are not running natively.
-#ifdef PROTO_NO_IMPLICIT_FALLBACK
-            static_assert(has_native_v<Op, T, A>,
-                          "implicit fallback: splitting in halves, no native intrinsic registered");
-#endif
             return batch<T, A> { apply_on_halves([](auto l, auto r)
                                                  { return apply<Op>(l, r); },
                                                  a, b) };
+        }
+        else if constexpr (t == tier::lanes)
+        {
+            return apply_scalar<Op>(a, b);
         }
         else
         {
@@ -200,7 +276,7 @@ namespace proto
         else if constexpr (splittable_v<A>)
             return resolves<Op, T, half_arch_t<A>>();
         else
-            return false;
+            return has_scalar_v<Op, T>;
     }
 
     template <class Op, class A, class... Ts>
