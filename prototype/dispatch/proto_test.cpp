@@ -6,20 +6,26 @@
 using A = xsimd::default_arch;
 
 // Every element type resolves on this architecture.
-PROTO_ASSERT_COVERAGE(proto::add_op, A);
+static_assert(proto::covers<proto::add_t, A>(), "add has an unresolvable element type");
 
 // Native-op expectations: these would have caught float-on-plain-AVX.
 #if XSIMD_WITH_AVX
-static_assert(proto::has_native_v<proto::add_op, float, xsimd::avx>, "vaddps is native on avx");
-static_assert(proto::has_native_v<proto::add_op, double, xsimd::avx>, "vaddpd is native on avx");
-static_assert(!proto::has_native_v<proto::add_op, int8_t, xsimd::avx>, "no vpaddb before avx2");
-static_assert(proto::has_native_v<proto::add_op, int8_t, xsimd::avx2>, "vpaddb is native on avx2");
+static_assert(proto::has_native_v<proto::add_t, float, xsimd::avx>, "vaddps is native on avx");
+static_assert(proto::has_native_v<proto::add_t, double, xsimd::avx>, "vaddpd is native on avx");
+static_assert(!proto::has_native_v<proto::add_t, int8_t, xsimd::avx>, "no vpaddb before avx2");
+static_assert(!proto::all_native<proto::add_t, xsimd::avx>(), "avx splits integers");
+#endif
+#if XSIMD_WITH_AVX2
+static_assert(proto::all_native<proto::add_t, xsimd::avx2>(), "avx2 is fully native");
 #endif
 #if XSIMD_WITH_AVX512F
-static_assert(!proto::has_native_v<proto::add_op, int16_t, xsimd::avx512f>, "needs avx512bw");
-static_assert(proto::has_native_v<proto::add_op, int16_t, xsimd::avx512bw>, "vpaddw on avx512bw");
-static_assert(proto::has_native_v<proto::add_op, int32_t, xsimd::avx512f>, "vpaddd on avx512f");
+static_assert(!proto::has_native_v<proto::add_t, int16_t, xsimd::avx512f>, "needs avx512bw");
+static_assert(proto::has_native_v<proto::add_t, int32_t, xsimd::avx512f>, "vpaddd on avx512f");
 #endif
+#if XSIMD_WITH_AVX512BW
+static_assert(proto::all_native<proto::add_t, xsimd::avx512bw>(), "avx512bw is fully native");
+#endif
+static_assert(proto::all_native<proto::add_t, xsimd::sse2>(), "sse2 is fully native");
 
 template <class T>
 using B = xsimd::batch<T, A>;
