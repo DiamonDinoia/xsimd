@@ -1041,6 +1041,17 @@ namespace xsimd
             }
         }
 
+        // countl_zero
+        template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
+        XSIMD_INLINE batch<T, A> countl_zero(batch<T, A> const& self, requires_arch<avx512vl_256>) noexcept
+        {
+            if constexpr (sizeof(T) == 4)
+                return _mm256_lzcnt_epi32(self);
+            else if constexpr (sizeof(T) == 8)
+                return _mm256_lzcnt_epi64(self);
+            else
+                return countl_zero(self, fma3<avx2> {});
+        }
     }
 }
 
