@@ -3700,6 +3700,24 @@ namespace xsimd
             else
                 return bitwise_cast<T>(batch<uint64_t, A>(vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(counts)))));
         }
+
+        /***************
+         * countl_zero *
+         ***************/
+
+        template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
+        XSIMD_INLINE batch<T, A> countl_zero(batch<T, A> const& self, requires_arch<neon>) noexcept
+        {
+            // CLZ stops at 32-bit elements
+            if constexpr (sizeof(T) == 1)
+                return bitwise_cast<T>(batch<uint8_t, A>(vclzq_u8(bitwise_cast<uint8_t>(self).data)));
+            else if constexpr (sizeof(T) == 2)
+                return bitwise_cast<T>(batch<uint16_t, A>(vclzq_u16(bitwise_cast<uint16_t>(self).data)));
+            else if constexpr (sizeof(T) == 4)
+                return bitwise_cast<T>(batch<uint32_t, A>(vclzq_u32(bitwise_cast<uint32_t>(self).data)));
+            else
+                return countl_zero(self, common {});
+        }
     }
 
 }
