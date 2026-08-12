@@ -1607,6 +1607,25 @@ namespace xsimd
         {
             return { batch<double, A>(vcvt_f64_f32(vget_low_f32(x))), batch<double, A>(vcvt_high_f64_f32(x)) };
         }
+
+        /***************
+         * bit_reverse *
+         ***************/
+        template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
+        XSIMD_INLINE batch<T, A> bit_reverse(batch<T, A> const& self, requires_arch<neon64>) noexcept
+        {
+            // RBIT reverses the bits of every byte; REV puts the bytes of each
+            // element back in the opposite order
+            uint8x16_t bits = vrbitq_u8(bitwise_cast<uint8_t>(self).data);
+            if constexpr (sizeof(T) == 1)
+                return bitwise_cast<T>(batch<uint8_t, A>(bits));
+            else if constexpr (sizeof(T) == 2)
+                return bitwise_cast<T>(batch<uint8_t, A>(vrev16q_u8(bits)));
+            else if constexpr (sizeof(T) == 4)
+                return bitwise_cast<T>(batch<uint8_t, A>(vrev32q_u8(bits)));
+            else
+                return bitwise_cast<T>(batch<uint8_t, A>(vrev64q_u8(bits)));
+        }
     }
 }
 
