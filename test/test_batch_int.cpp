@@ -380,6 +380,31 @@ struct batch_int_test
         }
     }
 
+    void test_bit_reverse() const
+    {
+        constexpr size_t bits = sizeof(value_type) * CHAR_BIT;
+        using U = std::make_unsigned_t<value_type>;
+        auto reverse = [](value_type v)
+        {
+            U u = U(v), r = 0;
+            for (size_t i = 0; i < bits; ++i)
+                if ((u >> i) & U(1))
+                    r = U(r | U(U(1) << (bits - 1 - i)));
+            return value_type(r);
+        };
+        for (size_t s = 0; s < 6; ++s)
+        {
+            array_type in = bit_patterns(s), expected;
+            std::transform(in.cbegin(), in.cend(), expected.begin(), reverse);
+            INFO("bit_reverse, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::bit_reverse(batch_type::load_unaligned(in.data())), expected);
+
+            // an involution: reversing twice is the identity
+            INFO("bit_reverse round trip, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::bit_reverse(xsimd::bit_reverse(batch_type::load_unaligned(in.data()))), in);
+        }
+    }
+
     void test_less_than_underflow() const
     {
         batch_type test_negative_compare = batch_type(5) - 6;
@@ -452,6 +477,11 @@ TEST_CASE_TEMPLATE("[batch int tests]", B, BATCH_INT_TYPES)
     SUBCASE("countr_zero")
     {
         Test.test_countr_zero();
+    }
+
+    SUBCASE("bit_reverse")
+    {
+        Test.test_bit_reverse();
     }
 }
 #endif

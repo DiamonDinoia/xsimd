@@ -101,6 +101,43 @@ namespace xsimd
             b_type lowest = x & (b_type(U(0)) - x);
             return popcount(bitwise_cast<T>(b_type(lowest - b_type(U(1)))), A {});
         }
+
+        // bit_reverse
+        template <class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> bit_reverse(batch<T, A> const& self, requires_arch<common>) noexcept
+        {
+            using U = as_unsigned_integer_t<T>;
+            using b_type = batch<U, A>;
+            constexpr std::size_t bits = sizeof(T) * CHAR_BIT;
+
+            // swap adjacent groups of s bits, doubling s until the element is
+            // mirrored. Expressing this as bit_permute<7..0> instead would put
+            // every bit in a displacement group of its own, which costs far
+            // more without a single-instruction permute to lower onto.
+            b_type x = bitwise_cast<U>(self);
+            b_type const m1(detail::alternating_mask<U>(1));
+            x = ((x >> 1) & m1) | ((x & m1) << 1);
+            b_type const m2(detail::alternating_mask<U>(2));
+            x = ((x >> 2) & m2) | ((x & m2) << 2);
+            b_type const m4(detail::alternating_mask<U>(4));
+            x = ((x >> 4) & m4) | ((x & m4) << 4);
+            if constexpr (bits >= 16)
+            {
+                b_type const m(detail::alternating_mask<U>(8));
+                x = ((x >> 8) & m) | ((x & m) << 8);
+            }
+            if constexpr (bits >= 32)
+            {
+                b_type const m(detail::alternating_mask<U>(16));
+                x = ((x >> 16) & m) | ((x & m) << 16);
+            }
+            if constexpr (bits >= 64)
+            {
+                b_type const m(detail::alternating_mask<U>(32));
+                x = ((x >> 32) & m) | ((x & m) << 32);
+            }
+            return bitwise_cast<T>(x);
+        }
     }
 }
 

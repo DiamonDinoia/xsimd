@@ -283,6 +283,21 @@ namespace xsimd
     /**
      * @ingroup batch_bitwise
      *
+     * Reverses the bit order of each element of \c x, so that bit \c i of an
+     * element ends up at position \c n-1-i, with \c n the element width.
+     * @param x batch to reverse.
+     * @return the bit reversed batch.
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> bit_reverse(batch<T, A> const& x) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::bit_reverse<A>(x, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
      * Computes the bitwise and of the batches \c x and \c y.
      * @param x batch involved in the operation.
      * @param y batch involved in the operation.

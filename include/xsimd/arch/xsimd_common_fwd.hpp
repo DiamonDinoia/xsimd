@@ -95,6 +95,8 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> countl_zero(batch<T, A> const& self, requires_arch<common>) noexcept;
         template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> countr_zero(batch<T, A> const& self, requires_arch<common>) noexcept;
+        template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
+        XSIMD_INLINE batch<T, A> bit_reverse(batch<T, A> const& self, requires_arch<common>) noexcept;
         template <class A, class T>
         XSIMD_INLINE batch<T, A> load(T const* mem, aligned_mode, requires_arch<A>) noexcept;
         template <class A, class T>
