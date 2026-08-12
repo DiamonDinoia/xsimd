@@ -354,6 +354,32 @@ struct batch_int_test
         }
     }
 
+    void test_countl_zero() const
+    {
+        using U = std::make_unsigned_t<value_type>;
+        for (size_t s = 0; s < 6; ++s)
+        {
+            array_type in = bit_patterns(s), expected;
+            std::transform(in.cbegin(), in.cend(), expected.begin(), [](value_type v)
+                           { return value_type(xsimd::detail::countl_zero(U(v))); });
+            INFO("countl_zero, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::countl_zero(batch_type::load_unaligned(in.data())), expected);
+        }
+    }
+
+    void test_countr_zero() const
+    {
+        using U = std::make_unsigned_t<value_type>;
+        for (size_t s = 0; s < 6; ++s)
+        {
+            array_type in = bit_patterns(s), expected;
+            std::transform(in.cbegin(), in.cend(), expected.begin(), [](value_type v)
+                           { return value_type(xsimd::detail::countr_zero(U(v))); });
+            INFO("countr_zero, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::countr_zero(batch_type::load_unaligned(in.data())), expected);
+        }
+    }
+
     void test_less_than_underflow() const
     {
         batch_type test_negative_compare = batch_type(5) - 6;
@@ -416,6 +442,16 @@ TEST_CASE_TEMPLATE("[batch int tests]", B, BATCH_INT_TYPES)
     SUBCASE("popcount")
     {
         Test.test_popcount();
+    }
+
+    SUBCASE("countl_zero")
+    {
+        Test.test_countl_zero();
+    }
+
+    SUBCASE("countr_zero")
+    {
+        Test.test_countr_zero();
     }
 }
 #endif

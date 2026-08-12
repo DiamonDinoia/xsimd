@@ -65,6 +65,42 @@ namespace xsimd
                 x = (x + (x >> 32)) & b_type(detail::alternating_mask<U>(32));
             return bitwise_cast<T>(x);
         }
+
+        // countl_zero
+        template <class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> countl_zero(batch<T, A> const& self, requires_arch<common>) noexcept
+        {
+            using U = as_unsigned_integer_t<T>;
+            using b_type = batch<U, A>;
+            constexpr std::size_t bits = sizeof(T) * CHAR_BIT;
+
+            // smear the highest set bit down, then count what is left
+            b_type x = bitwise_cast<U>(self);
+            x = x | (x >> 1);
+            x = x | (x >> 2);
+            x = x | (x >> 4);
+            if constexpr (bits >= 16)
+                x = x | (x >> 8);
+            if constexpr (bits >= 32)
+                x = x | (x >> 16);
+            if constexpr (bits >= 64)
+                x = x | (x >> 32);
+            return batch<T, A>(T(bits)) - popcount(bitwise_cast<T>(x), A {});
+        }
+
+        // countr_zero
+        template <class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> countr_zero(batch<T, A> const& self, requires_arch<common>) noexcept
+        {
+            using U = as_unsigned_integer_t<T>;
+            using b_type = batch<U, A>;
+
+            // x & -x isolates the lowest set bit; for x == 0 the decrement
+            // wraps to all ones, which popcounts to the element width
+            b_type x = bitwise_cast<U>(self);
+            b_type lowest = x & (b_type(U(0)) - x);
+            return popcount(bitwise_cast<T>(b_type(lowest - b_type(U(1)))), A {});
+        }
     }
 }
 

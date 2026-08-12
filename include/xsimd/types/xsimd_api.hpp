@@ -707,6 +707,36 @@ namespace xsimd
     }
 
     /**
+     * @ingroup batch_bitwise
+     *
+     * Counts the leading zero bits of each element of \c x, returning the
+     * element width for a zero element.
+     * @param x batch of integer values.
+     * @return per slot count of leading zeros.
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> countl_zero(batch<T, A> const& x) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::countl_zero<A>(x, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
+     * Counts the trailing zero bits of each element of \c x, returning the
+     * element width for a zero element.
+     * @param x batch of integer values.
+     * @return per slot count of trailing zeros.
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> countr_zero(batch<T, A> const& x) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::countr_zero<A>(x, A {});
+    }
+
+    /**
      * @ingroup batch_arithmetic
      *
      * Subtract 1 to batch \c x.
