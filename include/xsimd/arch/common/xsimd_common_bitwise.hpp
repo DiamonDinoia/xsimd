@@ -31,6 +31,12 @@ namespace xsimd
 
         namespace detail
         {
+            template <class F, std::size_t... Is>
+            XSIMD_INLINE void static_for(F&& f, std::index_sequence<Is...>) noexcept
+            {
+                (f(std::integral_constant<std::size_t, Is> {}), ...);
+            }
+
             // bit i is set when i / s is even: 0x55.. for s == 1, 0x33.. for
             // s == 2, 0x0f0f.. for s == 4, and so on up to s == bits / 2
             template <class U>
@@ -41,6 +47,24 @@ namespace xsimd
                     if (((i / s) & 1u) == 0u)
                         m = U(m | U(U(1) << i));
                 return m;
+            }
+
+            // accumulate the destination bits that all move by D positions:
+            // one mask and one shift covers the whole group
+            template <int D, class Cst, class A>
+            XSIMD_INLINE batch<uint8_t, A> bit_permute_group(batch<uint8_t, A> const& acc,
+                                                             batch<uint8_t, A> const& x, Cst) noexcept
+            {
+                using b_type = batch<uint8_t, A>;
+                constexpr uint8_t m = Cst::source_mask(D);
+                if constexpr (m == 0)
+                    return acc;
+                else if constexpr (D == 0)
+                    return acc | (x & b_type(m));
+                else if constexpr (D > 0)
+                    return acc | ((x & b_type(m)) << D);
+                else
+                    return acc | ((x & b_type(m)) >> (-D));
             }
         }
 
@@ -100,6 +124,22 @@ namespace xsimd
             b_type x = bitwise_cast<U>(self);
             b_type lowest = x & (b_type(U(0)) - x);
             return popcount(bitwise_cast<T>(b_type(lowest - b_type(U(1)))), A {});
+        }
+
+        // bit_permute
+        template <class A, class T, uint8_t... Vs>
+        XSIMD_INLINE batch<T, A> bit_permute(batch<T, A> const& self, bit_permute_constant<Vs...>,
+                                             requires_arch<common>) noexcept
+        {
+            using cst_type = bit_permute_constant<Vs...>;
+            auto x = bitwise_cast<uint8_t>(self);
+            batch<uint8_t, A> res(uint8_t(0));
+            // destination bit k reads source bit Vs[k], so a group shifts by
+            // k - Vs[k], which spans [-7, 7]
+            detail::static_for([&](auto i)
+                               { res = detail::bit_permute_group<int(decltype(i)::value) - 7>(res, x, cst_type {}); },
+                               std::make_index_sequence<15> {});
+            return bitwise_cast<T>(res);
         }
 
         // bit_reverse

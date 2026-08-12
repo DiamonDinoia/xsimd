@@ -398,6 +398,61 @@ namespace xsimd
         }
     };
 
+    /**
+     * @brief compile-time bit permutation within a byte
+     *
+     * Abstract representation of a rearrangement of the 8 bits of a byte,
+     * expressed the same way as a @c batch_constant passed to @c swizzle:
+     * @c Values is indexed by destination and holds the source index, both
+     * LSB-first, so destination bit @c i takes the value of source bit
+     * @c Values[i]. Source indices may repeat or be left out, in which case
+     * the transformation duplicates or clears bits rather than permuting
+     * them; every form is still a single @c VGF2P8AFFINEQB on GFNI.
+     *
+     * @tparam Values source bit index of each destination bit.
+     **/
+    template <uint8_t... Values>
+    struct bit_permute_constant
+    {
+        static constexpr std::size_t size = sizeof...(Values);
+        using value_type = uint8_t;
+        static_assert(size == 8, "a bit_permute_constant rearranges the 8 bits of a byte");
+
+        static constexpr uint8_t get(std::size_t i) noexcept
+        {
+            return std::array<value_type, size> { { Values... } }[i];
+        }
+
+        /**
+         * @brief GF(2) matrix encoding of this permutation
+         *
+         * Laid out as the matrix operand of @c VGF2P8AFFINEQB expects it: the
+         * row feeding destination bit @c k lives in byte @c 7-k.
+         */
+        static constexpr uint64_t as_gf2_matrix() noexcept
+        {
+            uint64_t m = 0;
+            for (std::size_t k = 0; k < size; ++k)
+                m |= uint64_t(1) << (get(k) + 8 * (7 - k));
+            return m;
+        }
+
+        /**
+         * @brief source bits whose destination sits @c d places higher
+         *
+         * Destination bits that travel the same distance share one mask and
+         * one shift, which is what the portable fallback iterates over.
+         */
+        static constexpr uint8_t source_mask(int d) noexcept
+        {
+            uint8_t m = 0;
+            for (std::size_t k = 0; k < size; ++k)
+                if (int(k) - int(get(k)) == d)
+                    m = uint8_t(m | uint8_t(1u << get(k)));
+            return m;
+        }
+    };
+
     namespace detail
     {
         template <typename T, class G, class A, std::size_t... Is>

@@ -484,4 +484,50 @@ TEST_CASE_TEMPLATE("[batch int tests]", B, BATCH_INT_TYPES)
         Test.test_bit_reverse();
     }
 }
+
+TEST_CASE("[batch bit_permute]")
+{
+    using batch_type = xsimd::batch<uint8_t>;
+    constexpr size_t size = batch_type::size;
+    using array_type = std::array<uint8_t, size>;
+
+    array_type in;
+    for (size_t i = 0; i < size; ++i)
+        in[i] = uint8_t(i * 7 + 1);
+    batch_type b = batch_type::load_unaligned(in.data());
+
+    auto reference = [&in](std::array<uint8_t, 8> const& src)
+    {
+        array_type out;
+        for (size_t i = 0; i < size; ++i)
+        {
+            uint8_t r = 0;
+            for (size_t k = 0; k < 8; ++k)
+                if ((in[i] >> src[k]) & 1)
+                    r = uint8_t(r | (1u << k));
+            out[i] = r;
+        }
+        return out;
+    };
+
+    INFO("bit_permute reverse");
+    CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<7, 6, 5, 4, 3, 2, 1, 0> {}),
+                   reference({ { 7, 6, 5, 4, 3, 2, 1, 0 } }));
+
+    INFO("bit_permute nibble swap");
+    CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<4, 5, 6, 7, 0, 1, 2, 3> {}),
+                   reference({ { 4, 5, 6, 7, 0, 1, 2, 3 } }));
+
+    INFO("bit_permute identity");
+    CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<0, 1, 2, 3, 4, 5, 6, 7> {}), in);
+
+    // not a permutation: every destination reads the same source bit
+    INFO("bit_permute broadcast");
+    CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<0, 0, 0, 0, 0, 0, 0, 0> {}),
+                   reference({ { 0, 0, 0, 0, 0, 0, 0, 0 } }));
+
+    INFO("bit_permute matches bit_reverse");
+    CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<7, 6, 5, 4, 3, 2, 1, 0> {}),
+                   xsimd::bit_reverse(b));
+}
 #endif

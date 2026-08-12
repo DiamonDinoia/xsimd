@@ -283,6 +283,24 @@ namespace xsimd
     /**
      * @ingroup batch_bitwise
      *
+     * Rearranges the 8 bits of every byte of \c x according to \c cst, the
+     * same way \c swizzle rearranges elements according to a
+     * \c batch_constant. Destination bit \c i of each byte takes the value of
+     * source bit \c cst[i], both counted from the least significant end.
+     * @param x batch to permute.
+     * @param cst compile-time source bit index of each destination bit.
+     * @return the permuted batch.
+     */
+    template <class T, class A, uint8_t... Vs>
+    XSIMD_INLINE batch<T, A> bit_permute(batch<T, A> const& x, bit_permute_constant<Vs...> cst) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::bit_permute<A>(x, cst, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
      * Reverses the bit order of each element of \c x, so that bit \c i of an
      * element ends up at position \c n-1-i, with \c n the element width.
      * @param x batch to reverse.
