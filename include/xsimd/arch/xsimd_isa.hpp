@@ -134,6 +134,10 @@
 #include "./xsimd_avx512vnni_avx512vbmi2.hpp"
 #endif
 
+#if XSIMD_WITH_GFNI_SSE4_2 || XSIMD_WITH_GFNI_AVX2 || XSIMD_WITH_GFNI_AVX512BW || XSIMD_WITH_GFNI_AVX512VNNI_AVX512VBMI2
+#include "./xsimd_gfni.hpp"
+#endif
+
 #if XSIMD_WITH_NEON
 #include "./xsimd_neon.hpp"
 #endif
