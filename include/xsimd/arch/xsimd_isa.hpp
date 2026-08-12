@@ -114,10 +114,6 @@
 #include "./xsimd_avx512pf.hpp"
 #endif
 
-#if XSIMD_WITH_AVX512VL
-#include "./xsimd_avx512pf.hpp"
-#endif
-
 #if XSIMD_WITH_AVX512IFMA
 #include "./xsimd_avx512ifma.hpp"
 #endif
