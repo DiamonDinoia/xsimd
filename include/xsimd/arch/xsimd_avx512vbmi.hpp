@@ -45,6 +45,13 @@ namespace xsimd
             return _mm512_maskz_permutexvar_epi8(mask, slide_pattern.as_batch(), x);
         }
 
+        // multishift
+        template <class A>
+        XSIMD_INLINE batch<uint8_t, A> multishift(batch<uint8_t, A> const& ctrl, batch<uint64_t, A> const& data, requires_arch<avx512vbmi>) noexcept
+        {
+            return _mm512_multishift_epi64_epi8(ctrl, data);
+        }
+
         // swizzle (dynamic version)
         template <class A>
         XSIMD_INLINE batch<uint8_t, A> swizzle(batch<uint8_t, A> const& self, batch<uint8_t, A> mask, requires_arch<avx512vbmi>) noexcept
