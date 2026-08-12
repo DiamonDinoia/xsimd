@@ -269,6 +269,35 @@ namespace xsimd
             return bitwise_cast<T>(x & m0);
         }
 
+        // bit_matmul
+        template <uint8_t Xor, class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> bit_matmul(batch<T, A> const& self, batch<uint64_t, A> const& matrix,
+                                            requires_arch<common>) noexcept
+        {
+            using b_type = batch<uint64_t, A>;
+            b_type x = bitwise_cast<uint64_t>(self);
+            b_type const ones(UINT64_C(0x0101010101010101));
+            b_type res(uint64_t(0));
+            // destination bit k of every byte is the parity of that byte ANDed
+            // with row 7-k of the matrix, which is byte 7-k of the qword
+            detail::static_for([&](auto k)
+                               {
+                                   constexpr int K = int(decltype(k)::value);
+                                   b_type row = (matrix >> (8 * (7 - K))) & b_type(uint64_t(0xff));
+                                   row = row | (row << 8);
+                                   row = row | (row << 16);
+                                   row = row | (row << 32);
+                                   b_type t = x & row;
+                                   t = t ^ (t >> 4);
+                                   t = t ^ (t >> 2);
+                                   t = t ^ (t >> 1);
+                                   res = res | ((t & ones) << K); },
+                               std::make_index_sequence<8> {});
+            if constexpr (Xor != 0)
+                res = res ^ b_type(uint64_t(Xor) * UINT64_C(0x0101010101010101));
+            return bitwise_cast<T>(res);
+        }
+
         // multishift
         template <class A>
         XSIMD_INLINE batch<uint8_t, A> multishift(batch<uint8_t, A> const& ctrl,

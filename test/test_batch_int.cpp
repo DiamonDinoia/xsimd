@@ -596,6 +596,79 @@ TEST_CASE("[batch bit_permute]")
                    xsimd::bit_reverse(b));
 }
 
+TEST_CASE("[batch bit_matmul]")
+{
+    using byte_batch = xsimd::batch<uint8_t>;
+    using word_batch = xsimd::batch<uint64_t>;
+    constexpr size_t nbytes = byte_batch::size;
+    constexpr size_t nwords = word_batch::size;
+
+    // out bit k of a byte is the parity of that byte ANDed with matrix byte 7-k
+    auto reference = [](uint8_t v, uint64_t m, uint8_t x)
+    {
+        uint8_t r = 0;
+        for (int k = 0; k < 8; ++k)
+        {
+            uint8_t row = uint8_t(m >> (8 * (7 - k)));
+            uint8_t t = uint8_t(row & v);
+            int parity = 0;
+            for (int b = 0; b < 8; ++b)
+                parity ^= (t >> b) & 1;
+            if (parity ^ ((x >> k) & 1))
+                r = uint8_t(r | (1u << k));
+        }
+        return r;
+    };
+
+    std::array<uint8_t, nbytes> in;
+    std::array<uint64_t, nwords> mat;
+    for (size_t i = 0; i < nbytes; ++i)
+        in[i] = uint8_t(i * 37 + 11);
+
+    // identity, bit reversal, all-zero, all-ones and an arbitrary matrix
+    const uint64_t identity = 0x0102040810204080ull;
+    const uint64_t reversal = 0x8040201008040201ull;
+    for (uint64_t m : { identity, reversal, uint64_t(0), ~uint64_t(0), uint64_t(0x0123456789ABCDEF) })
+    {
+        for (size_t i = 0; i < nwords; ++i)
+            mat[i] = m;
+        byte_batch b = byte_batch::load_unaligned(in.data());
+        word_batch bm = word_batch::load_unaligned(mat.data());
+
+        std::array<uint8_t, nbytes> expected;
+        for (size_t i = 0; i < nbytes; ++i)
+            expected[i] = reference(in[i], m, 0);
+        INFO("bit_matmul, matrix " << m);
+        CHECK_BATCH_EQ(xsimd::bit_matmul(b, bm), expected);
+
+        for (size_t i = 0; i < nbytes; ++i)
+            expected[i] = reference(in[i], m, 0xA5);
+        INFO("bit_matmul with xor, matrix " << m);
+        CHECK_BATCH_EQ(xsimd::bit_matmul<0xA5>(b, bm), expected);
+    }
+
+    // the identity matrix is a no-op and the reversal matrix agrees with
+    // bit_reverse, which is implemented independently
+    byte_batch b = byte_batch::load_unaligned(in.data());
+    INFO("bit_matmul identity");
+    CHECK_BATCH_EQ(xsimd::bit_matmul(b, word_batch(identity)), in);
+    INFO("bit_matmul reversal matches bit_reverse");
+    CHECK_BATCH_EQ(xsimd::bit_matmul(b, word_batch(reversal)), xsimd::bit_reverse(b));
+
+    // a per-lane matrix must be applied per lane, not broadcast
+    if (nwords >= 2)
+    {
+        for (size_t i = 0; i < nwords; ++i)
+            mat[i] = (i % 2) ? reversal : identity;
+        word_batch bm = word_batch::load_unaligned(mat.data());
+        std::array<uint8_t, nbytes> expected;
+        for (size_t i = 0; i < nbytes; ++i)
+            expected[i] = reference(in[i], mat[i / 8], 0);
+        INFO("bit_matmul with a different matrix per lane");
+        CHECK_BATCH_EQ(xsimd::bit_matmul(b, bm), expected);
+    }
+}
+
 TEST_CASE("[batch multishift]")
 {
     using byte_batch = xsimd::batch<uint8_t>;

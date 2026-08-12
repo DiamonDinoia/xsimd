@@ -336,6 +336,35 @@ namespace xsimd
     /**
      * @ingroup batch_bitwise
      *
+     * Applies an affine transformation over GF(2) to every byte of \c x: each
+     * byte is multiplied, as an 8 bit column vector, by the 8x8 bit matrix held
+     * in the 64-bit element of \c matrix it belongs to, and the result is xored
+     * with \c Xor. The row feeding destination bit \c k sits in byte \c 7-k of
+     * the matrix element.
+     *
+     * This is the operation x86 exposes as \c gf2p8affine (the \c VGF2P8AFFINEQB
+     * instruction of the GFNI extension, \c _mm_gf2p8affine_epi64_epi8 and its
+     * wider forms); it is the only vector bit-permute primitive on that target,
+     * and \c bit_permute lowers onto it. Permutation matrices rearrange bits,
+     * but the transformation is more general: a matrix may also duplicate,
+     * clear or xor bits together.
+     *
+     * @tparam Xor constant xored into every byte of the result.
+     * @param x batch whose bytes are transformed.
+     * @param matrix batch of one 8x8 GF(2) matrix per 64-bit element.
+     * @return the transformed batch.
+     */
+    template <uint8_t Xor = 0, class T, class A>
+    XSIMD_INLINE batch<T, A> bit_matmul(batch<T, A> const& x, batch<uint64_t, A> const& matrix) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        detail::static_check_supported_config<uint64_t, A>();
+        return kernel::bit_matmul<Xor, A>(x, matrix, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
      * Reverses the bit order of each element of \c x, so that bit \c i of an
      * element ends up at position \c n-1-i, with \c n the element width.
      * @param x batch to reverse.

@@ -58,6 +58,8 @@ Bitwise Operators
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`bit_permute`               | per byte compile-time bit rearrangement            |
 +---------------------------------------+----------------------------------------------------+
+| :cpp:func:`bit_matmul`                | per byte GF(2) affine map, x86 gf2p8affine         |
++---------------------------------------+----------------------------------------------------+
 | :cpp:func:`bit_deposit`               | per slot bit scatter, as PDEP does                 |
 +---------------------------------------+----------------------------------------------------+
 | :cpp:func:`bit_extract`               | per slot bit gather, as PEXT does                  |
