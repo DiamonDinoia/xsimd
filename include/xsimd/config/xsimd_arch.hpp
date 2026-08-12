@@ -145,8 +145,8 @@ namespace xsimd
     } // namespace detail
 
     using all_x86_architectures = arch_list<
-        avx512vnni<avx512vbmi2>, avx512vbmi2, avx512vbmi, avx512ifma, avx512pf, avx512vnni<avx512bw>, avx512bw, avx512er, avx512dq, avx512vl, avx512cd, avx512f,
-        avx512vl_256, avxvnni, fma3<avx2>, avx2, fma3<avx>, avx, avx512vl_128, avx2_128, avx_128, fma4, fma3<sse4_2>,
+        gfni<avx512vnni<avx512vbmi2>>, avx512vnni<avx512vbmi2>, avx512vbmi2, avx512vbmi, avx512ifma, avx512pf, avx512vnni<avx512bw>, gfni<avx512bw>, avx512bw, avx512er, avx512dq, avx512vl, avx512cd, avx512f,
+        avx512vl_256, avxvnni, gfni<avx2>, fma3<avx2>, avx2, fma3<avx>, avx, avx512vl_128, avx2_128, avx_128, fma4, gfni<sse4_2>, fma3<sse4_2>,
         sse4_2, sse4_1, /*sse4a,*/ ssse3, sse3, sse2>;
 
     using all_sve_architectures = arch_list<detail::sve<512>, detail::sve<256>, detail::sve<128>>;

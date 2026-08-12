@@ -59,6 +59,10 @@ namespace xsimd
             ARCH_FIELD(avx512vbmi2)
             ARCH_FIELD_EX(avx512vnni<::xsimd::avx512bw>, avx512vnni_bw)
             ARCH_FIELD_EX(avx512vnni<::xsimd::avx512vbmi2>, avx512vnni_vbmi2)
+            ARCH_FIELD_EX(gfni<::xsimd::sse4_2>, gfni_sse4_2)
+            ARCH_FIELD_EX(gfni<::xsimd::avx2>, gfni_avx2)
+            ARCH_FIELD_EX(gfni<::xsimd::avx512bw>, gfni_avx512bw)
+            ARCH_FIELD_EX(gfni<avx512vnni<::xsimd::avx512vbmi2>>, gfni_avx512vnni_vbmi2)
             ARCH_FIELD(neon)
             ARCH_FIELD(neon64)
             ARCH_FIELD_EX(i8mm<::xsimd::neon64>, i8mm_neon64)
@@ -132,6 +136,14 @@ namespace xsimd
                 avx512vbmi2 = cpu.avx512vbmi2();
                 avx512vnni_bw = cpu.avx512vnni_bw();
                 avx512vnni_vbmi2 = avx512vbmi2 && avx512vnni_bw;
+
+                // GFNI widens with whatever base is available rather than
+                // implying any of them
+                const bool has_gfni = cpu.gfni();
+                gfni_sse4_2 = has_gfni && sse4_2;
+                gfni_avx2 = has_gfni && avx2;
+                gfni_avx512bw = has_gfni && avx512bw;
+                gfni_avx512vnni_vbmi2 = has_gfni && avx512vnni_vbmi2;
             }
         };
     } // namespace detail

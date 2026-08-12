@@ -420,6 +420,30 @@
 /**
  * @ingroup xsimd_config_macro
  *
+ * Set to 1 if GFNI is available at compile-time on top of the matching base
+ * instruction set, to 0 otherwise. GFNI has a legacy SSE encoding, a VEX
+ * encoding and an EVEX encoding, so it widens with whatever base is enabled
+ * rather than requiring any particular one.
+ */
+#ifdef __GFNI__
+
+#define XSIMD_WITH_GFNI_SSE4_2 XSIMD_WITH_SSE4_2
+#define XSIMD_WITH_GFNI_AVX2 XSIMD_WITH_AVX2
+#define XSIMD_WITH_GFNI_AVX512BW XSIMD_WITH_AVX512BW
+#define XSIMD_WITH_GFNI_AVX512VNNI_AVX512VBMI2 XSIMD_WITH_AVX512VNNI_AVX512VBMI2
+
+#else
+
+#define XSIMD_WITH_GFNI_SSE4_2 0
+#define XSIMD_WITH_GFNI_AVX2 0
+#define XSIMD_WITH_GFNI_AVX512BW 0
+#define XSIMD_WITH_GFNI_AVX512VNNI_AVX512VBMI2 0
+
+#endif
+
+/**
+ * @ingroup xsimd_config_macro
+ *
  * Set to 1 if the target is in the ARM architecture family in 64 bits, to 0 otherwise
  */
 #if defined(__aarch64__) || defined(_M_ARM64)
