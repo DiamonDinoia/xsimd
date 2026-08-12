@@ -595,4 +595,39 @@ TEST_CASE("[batch bit_permute]")
     CHECK_BATCH_EQ(xsimd::bit_permute(b, xsimd::bit_permute_constant<7, 6, 5, 4, 3, 2, 1, 0> {}),
                    xsimd::bit_reverse(b));
 }
+
+TEST_CASE("[batch multishift]")
+{
+    using byte_batch = xsimd::batch<uint8_t>;
+    using word_batch = xsimd::batch<uint64_t>;
+    constexpr size_t nbytes = byte_batch::size;
+    constexpr size_t nwords = word_batch::size;
+
+    std::array<uint8_t, nbytes> ctrl;
+    std::array<uint64_t, nwords> data;
+    for (size_t i = 0; i < nwords; ++i)
+        data[i] = 0x0123456789ABCDEFull * (i + 1) + i;
+
+    // offset 0 and offset 64 must both mean "no rotation"
+    for (int round = 0; round < 3; ++round)
+    {
+        for (size_t i = 0; i < nbytes; ++i)
+            ctrl[i] = round == 0 ? uint8_t((i % 2) ? 0 : 64)
+                                 : uint8_t(i * 11 + round * 5);
+
+        std::array<uint8_t, nbytes> expected;
+        for (size_t i = 0; i < nbytes; ++i)
+        {
+            uint64_t q = data[i / 8];
+            int off = ctrl[i] & 63;
+            uint64_t rot = off == 0 ? q : ((q >> off) | (q << (64 - off)));
+            expected[i] = uint8_t(rot & 0xff);
+        }
+
+        INFO("multishift, round " << round);
+        CHECK_BATCH_EQ(xsimd::multishift(byte_batch::load_unaligned(ctrl.data()),
+                                         word_batch::load_unaligned(data.data())),
+                       expected);
+    }
+}
 #endif

@@ -105,6 +105,8 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> bit_extract(batch<T, A> const& self, batch<T, A> const& mask, requires_arch<common>) noexcept;
         template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> bit_deposit(batch<T, A> const& self, batch<T, A> const& mask, requires_arch<common>) noexcept;
+        template <class A>
+        XSIMD_INLINE batch<uint8_t, A> multishift(batch<uint8_t, A> const& ctrl, batch<uint64_t, A> const& data, requires_arch<common>) noexcept;
         template <class A, class T>
         XSIMD_INLINE batch<T, A> load(T const* mem, aligned_mode, requires_arch<A>) noexcept;
         template <class A, class T>

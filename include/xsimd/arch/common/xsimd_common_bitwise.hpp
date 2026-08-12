@@ -268,6 +268,27 @@ namespace xsimd
                                std::make_index_sequence<steps> {});
             return bitwise_cast<T>(x & m0);
         }
+
+        // multishift
+        template <class A>
+        XSIMD_INLINE batch<uint8_t, A> multishift(batch<uint8_t, A> const& ctrl,
+                                                  batch<uint64_t, A> const& data,
+                                                  requires_arch<common>) noexcept
+        {
+            using b_type = batch<uint64_t, A>;
+            b_type c = bitwise_cast<uint64_t>(ctrl);
+            b_type res(uint64_t(0));
+            // byte k of every qword takes 8 bits of that qword starting at
+            // its own offset, wrapping around the 64-bit boundary
+            detail::static_for([&](auto k)
+                               {
+                                   constexpr int K = int(decltype(k)::value);
+                                   b_type off = (c >> (8 * K)) & b_type(uint64_t(63));
+                                   b_type rotated = (data >> off) | (data << ((b_type(uint64_t(64)) - off) & b_type(uint64_t(63))));
+                                   res = res | ((rotated & b_type(uint64_t(0xff))) << (8 * K)); },
+                               std::make_index_sequence<8> {});
+            return bitwise_cast<uint8_t>(res);
+        }
     }
 }
 

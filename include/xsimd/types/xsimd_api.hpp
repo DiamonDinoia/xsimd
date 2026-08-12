@@ -1875,6 +1875,25 @@ namespace xsimd
     }
 
     /**
+     * @ingroup batch_bitwise
+     *
+     * Gathers eight unaligned bit fields out of every 64-bit element of
+     * \c data. Byte \c i of the result takes the 8 bits of the \c data
+     * element it belongs to that start at bit offset ``ctrl[i] % 64``,
+     * wrapping around the 64-bit boundary.
+     * @param ctrl batch of per byte bit offsets.
+     * @param data batch of 64-bit bit field sources.
+     * @return the gathered bytes.
+     */
+    template <class A>
+    XSIMD_INLINE batch<uint8_t, A> multishift(batch<uint8_t, A> const& ctrl, batch<uint64_t, A> const& data) noexcept
+    {
+        detail::static_check_supported_config<uint8_t, A>();
+        detail::static_check_supported_config<uint64_t, A>();
+        return kernel::multishift<A>(ctrl, data, A {});
+    }
+
+    /**
      * @ingroup batch_arithmetic
      *
      * Computes the low N bits of the 2N-bit lane-wise product of \c x and \c y.
