@@ -1222,6 +1222,13 @@ namespace xsimd
             return bitwise_cast<T>(batch<U, A>(svclz_x(detail_sve::ptrue<T>(), self)));
         }
 
+        // bit_reverse
+        template <class A, class T, detail::enable_integral_t<T> = 0>
+        XSIMD_INLINE batch<T, A> bit_reverse(const batch<T, A>& self, requires_arch<sve>) noexcept
+        {
+            return svrbit_x(detail_sve::ptrue<T>(), self);
+        }
+
     } // namespace kernel
 } // namespace xsimd
 
