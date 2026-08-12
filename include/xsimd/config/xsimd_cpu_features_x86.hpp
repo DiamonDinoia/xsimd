@@ -1005,7 +1005,11 @@ namespace xsimd
 
         inline bool avx512vbmi2() const noexcept { return avx512_enabled() && leaf7().all_bits_set<x86_cpuid_leaf7::ecx::avx512vbmi2>(); }
 
-        inline bool gfni() const noexcept { return avx512_enabled() && leaf7().all_bits_set<x86_cpuid_leaf7::ecx::gfni>(); }
+        // GFNI has legacy SSE, VEX and EVEX encodings, so the feature bit on its
+        // own says nothing about the usable register width. Requiring AVX512
+        // here would hide it on every CPU that carries it without AVX512, which
+        // is most of them; callers pair it with the base architecture instead.
+        inline bool gfni() const noexcept { return sse_enabled() && leaf7().all_bits_set<x86_cpuid_leaf7::ecx::gfni>(); }
 
         inline bool vaes() const noexcept { return avx512_enabled() && leaf7().all_bits_set<x86_cpuid_leaf7::ecx::vaes>(); }
 
