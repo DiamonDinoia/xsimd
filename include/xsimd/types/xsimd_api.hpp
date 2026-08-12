@@ -283,6 +283,41 @@ namespace xsimd
     /**
      * @ingroup batch_bitwise
      *
+     * Scatters the low bits of each element of \c x into the bit positions
+     * selected by \c mask, in order and leaving every other bit clear. This
+     * is the per slot equivalent of the scalar \c PDEP instruction.
+     * @param x batch holding the bits to place.
+     * @param mask batch selecting the destination bit positions.
+     * @return the deposited batch.
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> bit_deposit(batch<T, A> const& x, batch<T, A> const& mask) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::bit_deposit<A>(x, mask, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
+     * Gathers the bits of each element of \c x selected by \c mask into the
+     * low bits of the result, in order and leaving every other bit clear.
+     * This is the per slot equivalent of the scalar \c PEXT instruction, and
+     * the inverse of \c bit_deposit for the same mask.
+     * @param x batch holding the bits to collect.
+     * @param mask batch selecting the source bit positions.
+     * @return the extracted batch.
+     */
+    template <class T, class A>
+    XSIMD_INLINE batch<T, A> bit_extract(batch<T, A> const& x, batch<T, A> const& mask) noexcept
+    {
+        detail::static_check_supported_config<T, A>();
+        return kernel::bit_extract<A>(x, mask, A {});
+    }
+
+    /**
+     * @ingroup batch_bitwise
+     *
      * Rearranges the 8 bits of every byte of \c x according to \c cst, the
      * same way \c swizzle rearranges elements according to a
      * \c batch_constant. Destination bit \c i of each byte takes the value of

@@ -49,6 +49,34 @@ namespace xsimd
                 return m;
             }
 
+            constexpr std::size_t ilog2(std::size_t n) noexcept
+            {
+                std::size_t r = 0;
+                while (n > 1)
+                {
+                    n >>= 1;
+                    ++r;
+                }
+                return r;
+            }
+
+            // y[i] = parity of y[0..i], computed in log2(bits) steps
+            template <class B>
+            XSIMD_INLINE B parallel_suffix(B y) noexcept
+            {
+                constexpr std::size_t bits = sizeof(typename B::value_type) * CHAR_BIT;
+                y = y ^ (y << 1);
+                y = y ^ (y << 2);
+                y = y ^ (y << 4);
+                if constexpr (bits >= 16)
+                    y = y ^ (y << 8);
+                if constexpr (bits >= 32)
+                    y = y ^ (y << 16);
+                if constexpr (bits >= 64)
+                    y = y ^ (y << 32);
+                return y;
+            }
+
             // accumulate the destination bits that all move by D positions:
             // one mask and one shift covers the whole group
             template <int D, class Cst, class A>
@@ -177,6 +205,68 @@ namespace xsimd
                 x = ((x >> 32) & m) | ((x & m) << 32);
             }
             return bitwise_cast<T>(x);
+        }
+
+        // bit_extract
+        template <class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> bit_extract(batch<T, A> const& self, batch<T, A> const& mask,
+                                             requires_arch<common>) noexcept
+        {
+            using U = as_unsigned_integer_t<T>;
+            using b_type = batch<U, A>;
+            constexpr std::size_t steps = detail::ilog2(sizeof(T) * CHAR_BIT);
+
+            // Hacker's Delight, fig. 7-4: gather the selected bits right in
+            // log2(bits) compress-by-2^i rounds
+            b_type x = bitwise_cast<U>(self) & bitwise_cast<U>(mask);
+            b_type m = bitwise_cast<U>(mask);
+            b_type mk = (~m) << 1;
+            detail::static_for([&](auto i)
+                               {
+                                   constexpr int sh = 1 << decltype(i)::value;
+                                   b_type mp = detail::parallel_suffix(mk);
+                                   b_type mv = mp & m;
+                                   m = (m ^ mv) | (mv >> sh);
+                                   b_type t = x & mv;
+                                   x = (x ^ t) | (t >> sh);
+                                   mk = mk & ~mp; },
+                               std::make_index_sequence<steps> {});
+            return bitwise_cast<T>(x);
+        }
+
+        // bit_deposit
+        template <class A, class T, class /*=std::enable_if_t<std::is_integral_v<T>>*/>
+        XSIMD_INLINE batch<T, A> bit_deposit(batch<T, A> const& self, batch<T, A> const& mask,
+                                             requires_arch<common>) noexcept
+        {
+            using U = as_unsigned_integer_t<T>;
+            using b_type = batch<U, A>;
+            constexpr std::size_t steps = detail::ilog2(sizeof(T) * CHAR_BIT);
+
+            // Hacker's Delight, fig. 7-10: the same rounds as bit_extract
+            // record how far each group travels, then replay them backwards
+            b_type x = bitwise_cast<U>(self);
+            b_type m0 = bitwise_cast<U>(mask);
+            b_type m = m0;
+            b_type mk = (~m) << 1;
+            b_type moved[steps];
+            detail::static_for([&](auto i)
+                               {
+                                   constexpr std::size_t I = decltype(i)::value;
+                                   b_type mp = detail::parallel_suffix(mk);
+                                   b_type mv = mp & m;
+                                   moved[I] = mv;
+                                   m = (m ^ mv) | (mv >> (1 << I));
+                                   mk = mk & ~mp; },
+                               std::make_index_sequence<steps> {});
+            detail::static_for([&](auto i)
+                               {
+                                   constexpr std::size_t I = steps - 1 - decltype(i)::value;
+                                   b_type mv = moved[I];
+                                   b_type t = x << (1 << I);
+                                   x = (x & ~mv) | (t & mv); },
+                               std::make_index_sequence<steps> {});
+            return bitwise_cast<T>(x & m0);
         }
     }
 }

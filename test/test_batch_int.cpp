@@ -405,6 +405,66 @@ struct batch_int_test
         }
     }
 
+    void test_bit_deposit_extract() const
+    {
+        constexpr size_t bits = sizeof(value_type) * CHAR_BIT;
+        using U = std::make_unsigned_t<value_type>;
+        auto deposit = [](value_type v, value_type m)
+        {
+            U u = U(v), r = 0;
+            size_t k = 0;
+            for (size_t i = 0; i < bits; ++i)
+                if ((U(m) >> i) & U(1))
+                {
+                    if ((u >> k) & U(1))
+                        r = U(r | U(U(1) << i));
+                    ++k;
+                }
+            return value_type(r);
+        };
+        auto extract = [](value_type v, value_type m)
+        {
+            U u = U(v), r = 0;
+            size_t k = 0;
+            for (size_t i = 0; i < bits; ++i)
+                if ((U(m) >> i) & U(1))
+                {
+                    if ((u >> i) & U(1))
+                        r = U(r | U(U(1) << k));
+                    ++k;
+                }
+            return value_type(r);
+        };
+
+        for (size_t s = 0; s < 6; ++s)
+        {
+            array_type in = bit_patterns(s);
+            array_type mask = bit_patterns(s + 3);
+            array_type expected;
+            batch_type bin = batch_type::load_unaligned(in.data());
+            batch_type bmask = batch_type::load_unaligned(mask.data());
+
+            std::transform(in.cbegin(), in.cend(), mask.cbegin(), expected.begin(), deposit);
+            INFO("bit_deposit, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::bit_deposit(bin, bmask), expected);
+
+            std::transform(in.cbegin(), in.cend(), mask.cbegin(), expected.begin(), extract);
+            INFO("bit_extract, pattern " << s);
+            CHECK_BATCH_EQ(xsimd::bit_extract(bin, bmask), expected);
+
+            // extract undoes deposit for the bits the mask keeps
+            std::transform(in.cbegin(), in.cend(), mask.cbegin(), expected.begin(),
+                           [](value_type v, value_type m)
+                           {
+                               size_t kept = size_t(xsimd::detail::popcount(U(m)));
+                               U keep = kept >= bits ? U(~U(0)) : U(U(U(1) << kept) - U(1));
+                               return value_type(U(v) & keep);
+                           });
+            INFO("bit_extract(bit_deposit(x)), pattern " << s);
+            CHECK_BATCH_EQ(xsimd::bit_extract(xsimd::bit_deposit(bin, bmask), bmask), expected);
+        }
+    }
+
     void test_less_than_underflow() const
     {
         batch_type test_negative_compare = batch_type(5) - 6;
@@ -482,6 +542,11 @@ TEST_CASE_TEMPLATE("[batch int tests]", B, BATCH_INT_TYPES)
     SUBCASE("bit_reverse")
     {
         Test.test_bit_reverse();
+    }
+
+    SUBCASE("bit_deposit_extract")
+    {
+        Test.test_bit_deposit_extract();
     }
 }
 
