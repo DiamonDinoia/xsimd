@@ -223,6 +223,17 @@ struct bit_test
     }
 };
 
+// repeat_pattern is a constexpr mask table, so the check is the compile
+// itself: a wrong value or a wrong repeat stride fails to build.
+static_assert(xsimd::kernel::detail::repeat_pattern<uint8_t, uint8_t(0x55)>() == 0x55, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint16_t, uint8_t(0x33)>() == 0x3333, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint32_t, uint8_t(0x0f)>() == 0x0f0f0f0f, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint32_t, uint16_t(0x0f0f)>() == 0x0f0f0f0f, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint64_t, uint8_t(0x55)>() == 0x5555555555555555ULL, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint64_t, uint8_t(0x33)>() == 0x3333333333333333ULL, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint64_t, uint8_t(0x0f)>() == 0x0f0f0f0f0f0f0f0fULL, "repeat_pattern");
+static_assert(xsimd::kernel::detail::repeat_pattern<uint64_t, uint32_t(0xffffffff)>() == 0xffffffffffffffffULL, "repeat_pattern");
+
 TEST_CASE_TEMPLATE("[bit operations]", T,
                    uint8_t, uint16_t, uint32_t, uint64_t)
 {
