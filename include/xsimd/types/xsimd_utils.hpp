@@ -43,6 +43,14 @@ namespace xsimd
     {
     };
 
+#if defined(XSIMD_ENABLE_EMULATED_TYPES)
+    template <>
+    struct as_integer<long double>
+    {
+        using type = std::ptrdiff_t;
+    };
+#endif
+
     template <>
     struct as_integer<float>
     {
@@ -72,6 +80,14 @@ namespace xsimd
     struct as_unsigned_integer : std::make_unsigned<T>
     {
     };
+
+#if defined(XSIMD_ENABLE_EMULATED_TYPES)
+    template <>
+    struct as_unsigned_integer<long double>
+    {
+        using type = std::size_t;
+    };
+#endif
 
     template <>
     struct as_unsigned_integer<bool>

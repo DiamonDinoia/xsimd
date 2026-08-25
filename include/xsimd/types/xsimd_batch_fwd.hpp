@@ -20,7 +20,14 @@
 #define XSIMD_BATCH_DEFAULT_ARCH_IMPL void
 #else
 #include "../config/xsimd_arch.hpp"
+#if defined(XSIMD_ENABLE_EMULATED_TYPES)
+#include "./xsimd_emulated_auto.hpp"
+// Emulated-type support: types without an ISA register resolve to an emulated
+// batch of default-arch width, rather than failing to instantiate.
+#define XSIMD_BATCH_DEFAULT_ARCH_IMPL detail::arch_or_emulated_t<T, default_arch>
+#else
 #define XSIMD_BATCH_DEFAULT_ARCH_IMPL default_arch
+#endif
 #endif // XSIMD_NO_SUPPORTED_ARCHITECTURE
 
 namespace xsimd

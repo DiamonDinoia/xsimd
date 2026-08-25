@@ -16,7 +16,8 @@
 #include "../config/xsimd_arch.hpp"
 #include "./xsimd_common_fwd.hpp"
 
-#if XSIMD_WITH_EMULATED
+#if XSIMD_WITH_EMULATED || defined(XSIMD_ENABLE_EMULATED_TYPES)
+// type-driven emulated fallback turns the emulated ISA on globally too
 #include "./xsimd_emulated.hpp"
 #endif
 
