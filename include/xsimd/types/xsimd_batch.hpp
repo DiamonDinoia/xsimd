@@ -1858,7 +1858,16 @@ namespace xsimd
     template <typename T, std::size_t N>
     struct make_sized_batch
     {
+#ifdef XSIMD_ENABLE_EMULATED_TYPES
+        // No native sized batch (long double) → an exactly-N-lane emulated
+        // register keeps width-adaptive callers uniform.
+        using type = std::conditional_t<
+            std::is_void_v<typename details::sized_batch<T, N, supported_architectures>::type>,
+            batch<T, emulated<8 * sizeof(T) * N>>,
+            typename details::sized_batch<T, N, supported_architectures>::type>;
+#else
         using type = typename details::sized_batch<T, N, supported_architectures>::type;
+#endif
     };
 
     template <typename T, std::size_t N>

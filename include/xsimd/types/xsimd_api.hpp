@@ -2437,7 +2437,7 @@ namespace xsimd
     XSIMD_INLINE std::enable_if_t<std::is_arithmetic_v<T>, batch<T, A>>
     shuffle(batch<T, A> const& x, batch<T, A> const& y, batch_constant<Vt, A, Values...> mask) noexcept
     {
-        static_assert(sizeof(T) == sizeof(Vt), "consistent mask");
+        static_assert(sizeof(T) == sizeof(Vt) || types::is_emulated_v<A>, "consistent mask");
         static_assert(std::is_unsigned_v<Vt>, "mask must hold unsigned indices");
         detail::static_check_supported_config<T, A>();
         return kernel::shuffle<A>(x, y, mask, A {});
@@ -2853,7 +2853,7 @@ namespace xsimd
     XSIMD_INLINE std::enable_if_t<std::is_arithmetic_v<T>, batch<T, A>>
     swizzle(batch<T, A> const& x, batch_constant<Vt, A, Values...> mask) noexcept
     {
-        static_assert(sizeof(T) == sizeof(Vt), "consistent mask");
+        static_assert(sizeof(T) == sizeof(Vt) || types::is_emulated_v<A>, "consistent mask");
         detail::static_check_supported_config<T, A>();
         return kernel::swizzle<A>(x, mask, A {});
     }

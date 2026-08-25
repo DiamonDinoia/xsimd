@@ -54,6 +54,19 @@ namespace xsimd
             using unsigned_type = std::uint64_t;
             using floating_point_type = double;
         };
+
+#ifdef XSIMD_ENABLE_EMULATED_TYPES
+        // 16-byte long double participates in same-size type queries (masked
+        // loads). No standard 16-byte integer exists; sized_int_t<16> and
+        // sized_uint_t<16> stay unusable.
+        template <>
+        struct sized_num_types<16>
+        {
+            using signed_type = void;
+            using unsigned_type = void;
+            using floating_point_type = long double;
+        };
+#endif
     }
 
     /**

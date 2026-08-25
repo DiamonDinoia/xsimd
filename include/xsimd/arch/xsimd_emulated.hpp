@@ -637,13 +637,14 @@ namespace xsimd
 
         // shuffle
         template <class A, typename T, class ITy, ITy... Is>
-        XSIMD_INLINE batch<T, A> shuffle(batch<T, A> const& x, batch<float, A> const& y, batch_constant<ITy, A, Is...> mask, requires_arch<emulated<batch<T, A>::size>>) noexcept
+        XSIMD_INLINE batch<T, A> shuffle(batch<T, A> const& x, batch<T, A> const& y, batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
         {
             constexpr size_t size = batch<T, A>::size;
-            batch<ITy, A> bmask = mask;
+            static_assert(sizeof...(Is) >= size, "mask too short");
+            const ITy vals[] = { Is... };
             std::array<T, size> res;
             for (size_t i = 0; i < size; ++i)
-                res[i] = bmask.data[i] < size ? x.data[bmask.data[i]] : y.data[bmask.data[i] - size];
+                res[i] = vals[i] < size ? x.data[vals[i]] : y.data[vals[i] - size];
             return res;
         }
 
@@ -742,10 +743,11 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> swizzle(batch<T, A> const& self, batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
         {
             constexpr size_t size = batch<T, A>::size;
-            batch<ITy, A> bmask = mask;
+            static_assert(sizeof...(Is) >= size, "mask too short");
+            const ITy vals[] = { Is... };
             std::array<T, size> res;
             for (size_t i = 0; i < size; ++i)
-                res[i] = self.data[bmask.data[i]];
+                res[i] = self.data[vals[i]];
             return res;
         }
 

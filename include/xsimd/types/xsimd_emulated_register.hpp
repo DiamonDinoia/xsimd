@@ -22,6 +22,7 @@
 #include <array>
 #include <complex>
 #include <cstddef>
+#include <type_traits>
 
 namespace xsimd
 {
@@ -42,6 +43,19 @@ namespace xsimd
 
     namespace types
     {
+        // Detects emulated<N> arches; used to relax API invariants that only a
+        // real register can enforce (fixed lane width, mask element size).
+        template <class A>
+        struct is_emulated : std::false_type
+        {
+        };
+        template <size_t N>
+        struct is_emulated<emulated<N>> : std::true_type
+        {
+        };
+        template <class A>
+        constexpr bool is_emulated_v = is_emulated<A>::value;
+
         template <size_t N>
         struct simd_emulated_bool_register
         {

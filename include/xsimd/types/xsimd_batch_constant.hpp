@@ -270,7 +270,10 @@ namespace xsimd
         static constexpr std::size_t size = sizeof...(Values);
         using batch_type = batch<T, A>;
         using value_type = typename batch_type::value_type;
-        static_assert(sizeof...(Values) == batch_type::size, "consistent batch size");
+        // A mask constant that indexes an emulated batch of odd-size lanes
+        // (long double) cannot itself be materialized as batch<T, A> lanes,
+        // so its element count is checked at the use site instead.
+        static_assert(sizeof...(Values) == batch_type::size || types::is_emulated_v<A>, "consistent batch size");
 
         /**
          * @brief Generate a batch of @p batch_type from this @p batch_constant
@@ -511,7 +514,7 @@ namespace xsimd
      * @tparam A Architecture that will be used when converting to a regular batch.
      */
     template <std::array Arr, class A = default_arch>
-        requires(Arr.size() == batch<typename decltype(Arr)::value_type, A>::size)
+        requires(Arr.size() == batch<typename decltype(Arr)::value_type, A>::size || types::is_emulated_v<A>)
     XSIMD_INLINE constexpr auto make_batch_constant() noexcept
     {
         return detail::make_batch_constant<Arr, A>(std::make_index_sequence<Arr.size()>());
