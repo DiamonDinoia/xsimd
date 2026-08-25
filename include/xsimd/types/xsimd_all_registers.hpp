@@ -43,6 +43,6 @@
 #include "./xsimd_vxe_register.hpp"
 #include "./xsimd_wasm_register.hpp"
 
-#if XSIMD_WITH_EMULATED
+// Unconditional: arch-generic invariants below (is_emulated) need the type even
+// when the arch itself is not in the supported set.
 #include "./xsimd_emulated_register.hpp"
-#endif
