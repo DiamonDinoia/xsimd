@@ -61,9 +61,9 @@ namespace xsimd
         {
             using register_type = std::array<bool, N>;
             register_type data;
-            simd_emulated_bool_register() = default;
-            simd_emulated_bool_register(register_type r) { data = r; }
-            operator register_type() const noexcept { return data; }
+            constexpr simd_emulated_bool_register() noexcept : data{} {}
+            constexpr simd_emulated_bool_register(register_type r) noexcept : data(r) {}
+            constexpr operator register_type() const noexcept { return data; }
         };
         template <typename T, size_t N>
         struct get_bool_simd_register<T, emulated<N>>

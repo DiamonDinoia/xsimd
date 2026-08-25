@@ -637,7 +637,7 @@ namespace xsimd
 
         // shuffle
         template <class A, typename T, class ITy, ITy... Is>
-        XSIMD_INLINE batch<T, A> shuffle(batch<T, A> const& x, batch<T, A> const& y, batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
+        XSIMD_INLINE batch<T, A> shuffle(batch<T, A> const& x, batch<T, A> const& y, [[maybe_unused]] batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
         {
             constexpr size_t size = batch<T, A>::size;
             static_assert(sizeof...(Is) >= size, "mask too short");
@@ -740,7 +740,7 @@ namespace xsimd
         // swizzle
 
         template <class A, typename T, class ITy, ITy... Is>
-        XSIMD_INLINE batch<T, A> swizzle(batch<T, A> const& self, batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
+        XSIMD_INLINE batch<T, A> swizzle(batch<T, A> const& self, [[maybe_unused]] batch_constant<ITy, A, Is...> mask, requires_arch<emulated<8 * sizeof(T) * batch<T, A>::size>>) noexcept
         {
             constexpr size_t size = batch<T, A>::size;
             static_assert(sizeof...(Is) >= size, "mask too short");
