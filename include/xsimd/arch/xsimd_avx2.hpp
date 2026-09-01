@@ -624,6 +624,22 @@ namespace xsimd
             return detail::merge_sse(_mm256_cvtpd_epi32(low.data), _mm256_cvtpd_epi32(high.data));
         }
 
+        // gather: 32-bit integers widened to 64-bit lanes through 64-bit indices
+        template <class T, class A, class U, class V, detail::enable_sized_integral_t<T, 8> = 0, detail::enable_sized_integral_t<U, 4> = 0, detail::enable_sized_integral_t<V, 8> = 0>
+        XSIMD_INLINE batch<T, A> gather(batch<T, A> const&, U const* src, batch<V, A> const& index,
+                                        requires_arch<avx2>) noexcept
+        {
+            const __m128i g = _mm256_i64gather_epi32(reinterpret_cast<const int*>(src), index, sizeof(U));
+            if constexpr (std::is_signed_v<U>)
+            {
+                return _mm256_cvtepi32_epi64(g);
+            }
+            else
+            {
+                return _mm256_cvtepu32_epi64(g);
+            }
+        }
+
         // lt
         template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch_bool<T, A> lt(batch<T, A> const& self, batch<T, A> const& other, requires_arch<avx2>) noexcept

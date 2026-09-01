@@ -707,6 +707,37 @@ TEST_CASE_TEMPLATE("[load store]", B, BATCH_TYPES)
     SUBCASE("masked") { Test.test_masked(); }
 }
 
+TEST_CASE_TEMPLATE("gather widens 32-bit sources into 64-bit lanes", B, BATCH_INT_TYPES)
+{
+    using T = typename B::value_type;
+    if constexpr (sizeof(T) == 8)
+    {
+        using A = typename B::arch_type;
+        using I = xsimd::batch<int64_t, A>;
+        constexpr std::size_t N = B::size;
+        std::array<uint32_t, N> u32 {};
+        std::array<int32_t, N> i32 {};
+        std::array<int64_t, N> idx {};
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            u32[i] = 0xFFFFFFF0u + uint32_t(i); // top bit set: zero-extension must win
+            i32[i] = -16 + int32_t(i); // sign-extension must win
+            idx[i] = int64_t(N - 1 - i);
+        }
+        const I index = I::load_unaligned(idx.data());
+        std::array<T, N> exp_u {}, exp_i {}, got_u {}, got_i {};
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            exp_u[i] = static_cast<T>(u32[idx[i]]);
+            exp_i[i] = static_cast<T>(i32[idx[i]]);
+        }
+        B::gather(u32.data(), index).store_unaligned(got_u.data());
+        B::gather(i32.data(), index).store_unaligned(got_i.data());
+        CHECK(got_u == exp_u);
+        CHECK(got_i == exp_i);
+    }
+}
+
 TEST_CASE_TEMPLATE("store_masked respects Mode", B, BATCH_TYPES)
 {
     using T = typename B::value_type;
