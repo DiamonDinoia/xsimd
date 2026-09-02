@@ -396,7 +396,10 @@ TYPED_TEST(batch_cast_test, cast_sizeshift2)
 }
 #endif
 
-#if XSIMD_WITH_SSE2
+// sve and rvv used to declare fast_cast in detail_sve / detail_rvv, where the
+// dispatcher in kernel::detail cannot see it, so every conversion silently fell back
+// to the scalar loop.  Assert on those two arches as well as on sse2.
+#if XSIMD_WITH_SSE2 || XSIMD_WITH_SVE || XSIMD_WITH_RVV
 TEST_CASE_TEMPLATE("[xsimd cast tests]", B, CONVERSION_TYPES)
 {
     SUBCASE("use fastcast")

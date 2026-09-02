@@ -905,47 +905,48 @@ namespace xsimd
          ******************************/
 
         // fast_cast
-        namespace detail_sve
+        // The dispatcher looks these up from kernel::detail, so they have to live there:
+        // in detail_sve neither ADL nor unqualified lookup reaches them and every
+        // conversion falls back to the scalar loop.  Each overload is keyed on
+        // requires_arch<sve>, which carries XSIMD_SVE_BITS, so no ODR issue arises.
+        namespace detail
         {
-            inline namespace XSIMD_SVE_NAMESPACE
+            template <class A, class T, enable_sized_integral_t<T, 4> = 0>
+            XSIMD_INLINE batch<float, A> fast_cast(batch<T, A> const& arg, batch<float, A> const&, requires_arch<sve>) noexcept
             {
-                template <class A, class T, detail::enable_sized_integral_t<T, 4> = 0>
-                XSIMD_INLINE batch<float, A> fast_cast(batch<T, A> const& arg, batch<float, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_f32_x(detail_sve::ptrue<T>(), arg);
-                }
+                return svcvt_f32_x(detail_sve::ptrue<T>(), arg);
+            }
 
-                template <class A, class T, detail::enable_sized_integral_t<T, 8> = 0>
-                XSIMD_INLINE batch<double, A> fast_cast(batch<T, A> const& arg, batch<double, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_f64_x(detail_sve::ptrue<T>(), arg);
-                }
+            template <class A, class T, enable_sized_integral_t<T, 8> = 0>
+            XSIMD_INLINE batch<double, A> fast_cast(batch<T, A> const& arg, batch<double, A> const&, requires_arch<sve>) noexcept
+            {
+                return svcvt_f64_x(detail_sve::ptrue<T>(), arg);
+            }
 
-                template <class A>
-                XSIMD_INLINE batch<int32_t, A> fast_cast(batch<float, A> const& arg, batch<int32_t, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_s32_x(detail_sve::ptrue<float>(), arg);
-                }
+            template <class A>
+            XSIMD_INLINE batch<int32_t, A> fast_cast(batch<float, A> const& arg, batch<int32_t, A> const&, requires_arch<sve>) noexcept
+            {
+                return svcvt_s32_x(detail_sve::ptrue<float>(), arg);
+            }
 
-                template <class A>
-                XSIMD_INLINE batch<uint32_t, A> fast_cast(batch<float, A> const& arg, batch<uint32_t, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_u32_x(detail_sve::ptrue<float>(), arg);
-                }
+            template <class A>
+            XSIMD_INLINE batch<uint32_t, A> fast_cast(batch<float, A> const& arg, batch<uint32_t, A> const&, requires_arch<sve>) noexcept
+            {
+                return svcvt_u32_x(detail_sve::ptrue<float>(), arg);
+            }
 
-                template <class A>
-                XSIMD_INLINE batch<int64_t, A> fast_cast(batch<double, A> const& arg, batch<int64_t, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_s64_x(detail_sve::ptrue<double>(), arg);
-                }
+            template <class A>
+            XSIMD_INLINE batch<int64_t, A> fast_cast(batch<double, A> const& arg, batch<int64_t, A> const&, requires_arch<sve>) noexcept
+            {
+                return svcvt_s64_x(detail_sve::ptrue<double>(), arg);
+            }
 
-                template <class A>
-                XSIMD_INLINE batch<uint64_t, A> fast_cast(batch<double, A> const& arg, batch<uint64_t, A> const&, requires_arch<sve>) noexcept
-                {
-                    return svcvt_u64_x(detail_sve::ptrue<double>(), arg);
-                }
-            } // namespace XSIMD_SVE_NAMESPACE
-        } // namespace detail_sve
+            template <class A>
+            XSIMD_INLINE batch<uint64_t, A> fast_cast(batch<double, A> const& arg, batch<uint64_t, A> const&, requires_arch<sve>) noexcept
+            {
+                return svcvt_u64_x(detail_sve::ptrue<double>(), arg);
+            }
+        } // namespace detail
 
         /*********
          * Miscs *

@@ -1254,16 +1254,22 @@ namespace xsimd
             using rvv_enable_ftoi_t = std::enable_if_t<(sizeof(T) == sizeof(U) && std::is_floating_point_v<T> && !std::is_floating_point_v<U>), int>;
             template <class T, class U>
             using rvv_enable_itof_t = std::enable_if_t<(sizeof(T) == sizeof(U) && !std::is_floating_point_v<T> && std::is_floating_point_v<U>), int>;
+        }
 
-            template <class A, class T, class U, rvv_enable_ftoi_t<T, U> = 0>
+        // The dispatcher looks fast_cast up from kernel::detail, so both overloads have
+        // to live there: in detail_rvv neither ADL nor unqualified lookup reaches them
+        // and every conversion falls back to the scalar loop.
+        namespace detail
+        {
+            template <class A, class T, class U, detail_rvv::rvv_enable_ftoi_t<T, U> = 0>
             XSIMD_INLINE batch<U, A> fast_cast(batch<T, A> const& arg, batch<U, A> const&, requires_arch<rvv>) noexcept
             {
-                return rvvfcvt_rtz(U {}, arg);
+                return detail_rvv::rvvfcvt_rtz(U {}, arg);
             }
-            template <class A, class T, class U, rvv_enable_itof_t<T, U> = 0>
+            template <class A, class T, class U, detail_rvv::rvv_enable_itof_t<T, U> = 0>
             XSIMD_INLINE batch<U, A> fast_cast(batch<T, A> const& arg, batch<U, A> const&, requires_arch<rvv>) noexcept
             {
-                return rvvfcvt_f(arg);
+                return detail_rvv::rvvfcvt_f(arg);
             }
         }
 
