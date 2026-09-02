@@ -251,6 +251,26 @@ namespace xsimd
                 return bitwise_cast<int64_t>(self);
             }
 
+            // Common double -> int64_t cast.  Adding 1.5 * 2^52 puts an integer
+            // |v| < 2^51 exactly in the mantissa, so subtracting the bit patterns
+            // reads it back out.  trunc first, then split into halves that small.
+            // An architecture reaching this overload needs a non-common trunc:
+            // the common one goes through to_int and would recurse into here.
+            template <class A>
+            XSIMD_INLINE batch<int64_t, A> fast_cast(batch<double, A> const& x, batch<int64_t, A> const&, requires_arch<common>) noexcept
+            {
+                using batch_type = batch<double, A>;
+                batch_type magic(0x1.8p52);
+                batch<int64_t, A> magic_i = bitwise_cast<int64_t>(magic);
+                batch_type t = trunc(x);
+                batch_type hi = trunc(t * batch_type(0x1p-32)); // |hi| <= 2^31
+                batch_type lo = t - hi * batch_type(0x1p32); // exact, |lo| < 2^32
+                detail::reassociation_barrier(lo, "keep lo below 2^32 before the magic add");
+                batch<int64_t, A> hi_i = bitwise_cast<int64_t>(hi + magic) - magic_i;
+                batch<int64_t, A> lo_i = bitwise_cast<int64_t>(lo + magic) - magic_i;
+                return (hi_i << 32) + lo_i;
+            }
+
             // Provide a common uint32_t -> float cast only if we have a
             // non-common int32_t -> float fast_cast
             template <class A, class = decltype(fast_cast(std::declval<batch<int32_t, A> const&>(), std::declval<batch<float, A> const&>(), A {}))>

@@ -14,6 +14,8 @@
 
 #include "test_utils.hpp"
 
+#include <random>
+
 #if !XSIMD_WITH_NEON || XSIMD_WITH_NEON64
 namespace detail
 {
@@ -150,6 +152,12 @@ struct batch_cast_test
             -9223372036854775808.0,
             18446744073709550591.0
         };
+    }
+
+    void test_cast_all_lanes() const
+    {
+        test_cast_all_lanes_impl<float_batch, int32_batch>("batch cast float -> int32");
+        test_cast_all_lanes_impl<double_batch, int64_batch>("batch cast double -> int64");
     }
 
     void test_bool_cast() const
@@ -345,6 +353,56 @@ private:
         }
     }
 
+    // A float -> same-width-int cast can recombine per-lane data, so every lane has to
+    // carry a different value; the other cast tests are splats and only look at lane 0.
+    template <class B_in, class B_out>
+    void test_cast_all_lanes_impl(const std::string& name) const
+    {
+        using T_in = typename B_in::value_type;
+        using T_out = typename B_out::value_type;
+        constexpr int digits = std::numeric_limits<T_out>::digits; // 31 or 63
+        const T_in beyond = std::ldexp(T_in(1), digits); // one past the top of T_out
+        const T_in top = std::nextafter(beyond, T_in(0)); // the largest T_in that fits
+        // The ends of the range, then every power of two the cast can reach probed on
+        // both sides: those are where a carry between halves and the end of the
+        // mantissa live, and a random draw never lands on one of them.
+        std::vector<T_in> values = { T_in(0), -T_in(0), -beyond, top, -top };
+        for (int e = 0; e < digits; ++e)
+        {
+            const T_in p = std::ldexp(T_in(1), e);
+            for (const T_in v : { p - T_in(1.5), p - T_in(1), p - T_in(.5), std::nextafter(p, T_in(0)),
+                                  p, std::nextafter(p, beyond), p + T_in(.5), p + T_in(1) })
+            {
+                values.push_back(v);
+                values.push_back(-v);
+            }
+        }
+        // Eight random values in every binade the cast can reach, both signs.  The
+        // engine is default seeded, so a failure reproduces.
+        std::default_random_engine generator;
+        std::uniform_real_distribution<T_in> mantissa(T_in(1), T_in(2));
+        for (int e = -1; e < digits; ++e)
+            for (int k = 0; k < 8; ++k)
+            {
+                const T_in v = std::ldexp(mantissa(generator), e);
+                values.push_back(v);
+                values.push_back(-v);
+            }
+        constexpr size_t n = B_in::size;
+        T_in buffer[n];
+        for (size_t i = 0; i < values.size(); i += n)
+        {
+            for (size_t l = 0; l < n; ++l)
+                buffer[l] = values[(i + l) % values.size()];
+            B_out res = xsimd::batch_cast<T_out>(B_in::load_unaligned(buffer));
+            for (size_t l = 0; l < n; ++l)
+            {
+                INFO(name, ", lane ", l, " holding ", buffer[l]);
+                CHECK_SCALAR_EQ(static_cast<T_out>(buffer[l]), res.get(l));
+            }
+        }
+    }
+
     template <class B_in, class B_out>
     void test_bool_cast_impl(const std::string& name) const
     {
@@ -380,6 +438,11 @@ TEST_CASE_TEMPLATE("[xsimd cast tests]", B, CONVERSION_TYPES)
     {
         Test.test_cast();
     }
+
+    SUBCASE("cast all lanes")
+    {
+        Test.test_cast_all_lanes();
+    }
 }
 #endif
 #if 0 && XSIMD_X86_INSTR_SET > D_X86_AVX_VERSION
@@ -396,19 +459,27 @@ TYPED_TEST(batch_cast_test, cast_sizeshift2)
 }
 #endif
 
+// neon32 has no batch<double>, and detail::uses_fast_cast_v lives inside the guard
+// that excludes it, so the whole block needs the same guard.
+#if !XSIMD_WITH_NEON || XSIMD_WITH_NEON64
 // sve and rvv used to declare fast_cast in detail_sve / detail_rvv, where the
 // dispatcher in kernel::detail cannot see it, so every conversion silently fell back
-// to the scalar loop.  Assert on those two arches as well as on sse2.
-#if XSIMD_WITH_SSE2 || XSIMD_WITH_SVE || XSIMD_WITH_RVV
+// to the scalar loop.  int32 <-> float has no common overload, so both asserts below
+// fail if an architecture declares its fast_cast outside kernel::detail again.
 TEST_CASE_TEMPLATE("[xsimd cast tests]", B, CONVERSION_TYPES)
 {
     SUBCASE("use fastcast")
     {
         using A = xsimd::default_arch;
+#if XSIMD_WITH_SSE2 || XSIMD_WITH_SVE || XSIMD_WITH_RVV
         static_assert(detail::uses_fast_cast_v<A, int32_t, float>,
                       "expected int32 to float conversion to use fast_cast");
         static_assert(detail::uses_fast_cast_v<A, float, int32_t>,
                       "expected float to int32 conversion to use fast_cast");
+#endif
+        // the common overload answers double -> int64_t on every architecture
+        static_assert(detail::uses_fast_cast_v<A, double, int64_t>,
+                      "expected double to int64 conversion to use fast_cast");
     }
 }
 #endif
