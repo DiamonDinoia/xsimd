@@ -2259,6 +2259,26 @@ namespace xsimd
             transpose(reinterpret_cast<batch<double, A>*>(matrix_begin), reinterpret_cast<batch<double, A>*>(matrix_end), A {});
         }
 
+        // trunc
+        template <class A>
+        XSIMD_INLINE batch<double, A> trunc(batch<double, A> const& self, requires_arch<sse2>) noexcept
+        {
+            // The common implementation goes through batch_cast<int64_t>, which on sse2
+            // is itself built on trunc.  Adding 2^52 rounds |self| to an integer whatever
+            // the rounding mode is; one conditional decrement turns that into floor.
+            __m128d signmask = _mm_set1_pd(-0.);
+            __m128d t2n = _mm_set1_pd(4503599627370496.); //  2^52
+            __m128d s = _mm_and_pd(self, signmask);
+            __m128d v = _mm_andnot_pd(signmask, self); // |self|
+            __m128d d0 = _mm_add_pd(v, t2n);
+            detail::reassociation_barrier(d0, "prevent collapsing (v + 2^52) - 2^52 back to v");
+            __m128d d = _mm_sub_pd(d0, t2n);
+            d = _mm_sub_pd(d, _mm_and_pd(_mm_cmpgt_pd(d, v), _mm_set1_pd(1.))); // floor(|self|)
+            d = _mm_andnot_pd(signmask, d); // roundTowardNegative makes 2^52 - 2^52 negative
+            __m128d small = _mm_cmplt_pd(v, t2n);
+            return _mm_or_pd(s, _mm_or_pd(_mm_and_pd(small, d), _mm_andnot_pd(small, v)));
+        }
+
         // zip_hi
         template <class A>
         XSIMD_INLINE batch<float, A> zip_hi(batch<float, A> const& self, batch<float, A> const& other, requires_arch<sse2>) noexcept
