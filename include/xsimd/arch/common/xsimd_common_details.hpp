@@ -251,19 +251,29 @@ namespace xsimd
                 return bitwise_cast<int64_t>(self);
             }
 
-            // Common double -> int64_t cast.  Adding 1.5 * 2^52 puts an integer
-            // |v| < 2^51 exactly in the mantissa, so subtracting the bit patterns
-            // reads it back out.  trunc first, then split into halves that small.
-            // An architecture reaching this overload needs a non-common trunc:
-            // the common one goes through to_int and would recurse into here.
+            // double -> int64 without hardware cvttpd_epi64. Must not call trunc(): the common trunc goes
+            // through to_int and recurses back here on any arch without its own trunc. |x| >= 2^52 is already
+            // integral; below that (|x| + 2^52) - 2^52 rounds |x| to the nearest integer exactly and a -1 where
+            // the rounding went up gives floor(|x|) = |trunc(x)|. Each half stays |half| < 2^32, so the mantissa
+            // of 1.5 * 2^52 + half holds it exactly and one integer subtraction reads it out. Exact for every x
+            // whose truncation fits int64_t.
+            template <class A>
+            XSIMD_INLINE batch<double, A> trunc_magnitude_below_2_52(batch<double, A> const& x) noexcept
+            {
+                const batch<double, A> two52(4503599627370496.0);
+                const batch<double, A> ax = abs(x);
+                const batch<double, A> r = (ax + two52) - two52;
+                return copysign(select(r > ax, r - batch<double, A>(1.0), r), x);
+            }
             template <class A>
             XSIMD_INLINE batch<int64_t, A> fast_cast(batch<double, A> const& x, batch<int64_t, A> const&, requires_arch<common>) noexcept
             {
                 using batch_type = batch<double, A>;
                 batch_type magic(0x1.8p52);
                 batch<int64_t, A> magic_i = bitwise_cast<int64_t>(magic);
-                batch_type t = trunc(x);
-                batch_type hi = trunc(t * batch_type(0x1p-32)); // |hi| <= 2^31
+                batch_type two52(0x1.0p52);
+                batch_type t = select(abs(x) < two52, trunc_magnitude_below_2_52(x), x);
+                batch_type hi = trunc_magnitude_below_2_52(t * batch_type(0x1p-32)); // |hi| <= 2^31
                 batch_type lo = t - hi * batch_type(0x1p32); // exact, |lo| < 2^32
                 detail::reassociation_barrier(lo, "keep lo below 2^32 before the magic add");
                 batch<int64_t, A> hi_i = bitwise_cast<int64_t>(hi + magic) - magic_i;
