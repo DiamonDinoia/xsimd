@@ -251,16 +251,28 @@ namespace xsimd
                 return bitwise_cast<int64_t>(self);
             }
 
-            // double -> int64_t without a native instruction: t = trunc(x) = hi * 2^32 + lo with |hi| < 2^31 and
-            // |lo| < 2^32; the mantissa of 1.5 * 2^52 + v holds v exactly for |v| < 2^51, so each half reads out
-            // of the bit pattern with one integer subtraction. Exact for every x whose truncation fits int64_t.
+            // double -> int64 without hardware cvttpd_epi64. Must not call trunc(): on sse2 trunc(double) is
+            // to_float(to_int(x)) and would recurse back here. |x| >= 2^52 is already integral; below that
+            // (|x| + 2^52) - 2^52 rounds |x| to the nearest integer exactly (the sum stays under 2^53) and
+            // subtracting 1 where that exceeds |x| gives floor(|x|) = |trunc(x)|. The result then splits into
+            // hi:lo halves, each |half| < 2^32, read out of the bit pattern of 1.5 * 2^52 + half with one
+            // integer subtraction. Exact for every x whose truncation fits int64_t.
+            template <class A>
+            XSIMD_INLINE batch<double, A> trunc_magnitude_below_2_52(batch<double, A> const& x) noexcept
+            {
+                const batch<double, A> two52(4503599627370496.0);
+                const batch<double, A> ax = abs(x);
+                const batch<double, A> r = (ax + two52) - two52;
+                return copysign(select(r > ax, r - batch<double, A>(1.0), r), x);
+            }
             template <class A>
             XSIMD_INLINE batch<int64_t, A> fast_cast(batch<double, A> const& self, batch<int64_t, A> const&, requires_arch<common>) noexcept
             {
                 const batch<double, A> magic(6755399441055744.0); // 1.5 * 2^52
                 const batch<double, A> two32(4294967296.0);
-                const batch<double, A> t = trunc(self);
-                const batch<double, A> hi = trunc(t * (batch<double, A>(1.0) / two32));
+                const batch<double, A> two52(4503599627370496.0);
+                const batch<double, A> t = select(abs(self) < two52, trunc_magnitude_below_2_52(self), self);
+                const batch<double, A> hi = trunc_magnitude_below_2_52(t * (batch<double, A>(1.0) / two32));
                 const batch<double, A> lo = t - hi * two32;
                 const batch<int64_t, A> magic_bits = bitwise_cast<int64_t>(magic);
                 const batch<int64_t, A> hi_i = bitwise_cast<int64_t>(hi + magic) - magic_bits;
