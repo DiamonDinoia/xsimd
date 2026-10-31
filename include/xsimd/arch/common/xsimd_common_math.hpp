@@ -673,7 +673,7 @@ namespace xsimd
 
                 static constexpr B minlog() noexcept
                 {
-                    return constants::minlog<B>();
+                    return constants::minlogsub<B>();
                 }
             };
 
@@ -687,7 +687,7 @@ namespace xsimd
 
                 static constexpr B minlog() noexcept
                 {
-                    return constants::minlog10<B>();
+                    return constants::minlog10sub<B>();
                 }
             };
 
@@ -701,7 +701,7 @@ namespace xsimd
 
                 static constexpr B minlog() noexcept
                 {
-                    return constants::minlog2<B>();
+                    return constants::minlog2sub<B>();
                 }
             };
 
@@ -889,7 +889,23 @@ namespace xsimd
                 batch_type x;
                 batch_type k = reducer_t::reduce(self, x);
                 x = reducer_t::approx(x);
-                x = select(self <= reducer_t::minlog(), batch_type(0.), ldexp(x, to_int(k)));
+                // 2^ik is not representable for ik < -126; rare, so the hot path keeps one ldexp and only
+                // lanes with such a k take the pre-scale (x * 2^-27, ik + 27), which keeps one rounding
+                if (!any(k < batch_type(-126.f)))
+                {
+                    x = ldexp(x, to_int(k));
+                }
+                else
+                {
+                    using i_type = as_integer_t<batch_type>;
+                    i_type ik = to_int(k);
+                    auto sub = k < batch_type(-126.f);
+                    x = select(sub, x * batch_type(0x1p-27f), x);
+                    ik = select(batch_bool_cast<as_integer_t<float>>(sub), ik + i_type(27), ik);
+                    x = ldexp(x, ik);
+                    // lanes below the flush bound imply k < -126, so this select is dead on the hot path
+                    x = select(self <= reducer_t::minlog(), batch_type(0.), x);
+                }
 #ifndef __FAST_MATH__
                 x = select(self >= reducer_t::maxlog(), constants::infinity<batch_type>(), x);
 #endif
@@ -905,7 +921,23 @@ namespace xsimd
                 batch_type k = reducer_t::reduce(self, hi, lo, x);
                 batch_type c = reducer_t::approx(x);
                 c = reducer_t::finalize(x, c, hi, lo);
-                c = select(self <= reducer_t::minlog(), batch_type(0.), ldexp(c, to_int(k)));
+                // 2^ik is not representable for ik < -1022; rare, so the hot path keeps one ldexp and only
+                // lanes with such a k take the pre-scale (c * 2^-54, ik + 54), which keeps one rounding
+                if (!any(k < batch_type(-1022.)))
+                {
+                    c = ldexp(c, to_int(k));
+                }
+                else
+                {
+                    using i_type = as_integer_t<batch_type>;
+                    i_type ik = to_int(k);
+                    auto sub = k < batch_type(-1022.);
+                    c = select(sub, c * batch_type(0x1p-54), c);
+                    ik = select(batch_bool_cast<as_integer_t<double>>(sub), ik + i_type(54), ik);
+                    c = ldexp(c, ik);
+                    // lanes below the flush bound imply k < -1022, so this select is dead on the hot path
+                    c = select(self <= reducer_t::minlog(), batch_type(0.), c);
+                }
 #ifndef __FAST_MATH__
                 c = select(self >= reducer_t::maxlog(), constants::infinity<batch_type>(), c);
 #endif

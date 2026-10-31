@@ -86,6 +86,10 @@ namespace xsimd
         XSIMD_DEFINE_CONSTANT(minlog, -88.3762626647949f, -708.3964185322641)
         XSIMD_DEFINE_CONSTANT(minlog2, -127.0f, -1023.)
         XSIMD_DEFINE_CONSTANT(minlog10, -37.89999771118164f, -308.2547155599167)
+        // flush bounds: largest x whose exp/exp2/exp10 rounds to +0, not log of the smallest normal
+        XSIMD_DEFINE_CONSTANT_HEX(minlogsub, 0xc2cff1b5, 0xc0874910d52d3052)
+        XSIMD_DEFINE_CONSTANT(minlog2sub, -150.0f, -1075.)
+        XSIMD_DEFINE_CONSTANT_HEX(minlog10sub, 0xc2349e36, 0xc07439b746e36b53)
         XSIMD_DEFINE_CONSTANT_HEX(nan, 0xffffffff, 0xffffffffffffffff)
         XSIMD_DEFINE_CONSTANT_HEX(oneosqrteps, 0x453504f3, 0x4190000000000000)
         XSIMD_DEFINE_CONSTANT_HEX(oneotwoeps, 0x4a800000, 0x4320000000000000)
