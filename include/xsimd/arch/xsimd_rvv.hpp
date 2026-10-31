@@ -111,7 +111,7 @@
         template <class K, class T>                                        \
         struct impl                                                        \
         {                                                                  \
-            void operator()() const noexcept {};                           \
+            void operator()() const noexcept { };                          \
         };                                                                 \
         template <class K>                                                 \
         using impl_t = impl<K, sig_t<K>>;
@@ -205,7 +205,7 @@
         using NAME##_cruft::impl_t<uint64_t>::operator();     \
         using NAME##_cruft::impl_t<float>::operator();        \
         using NAME##_cruft::impl_t<double>::operator();       \
-    } NAME {};
+    } NAME { };
 #define XSIMD_RVV_WRAPPER_TAIL_NOVL(...) XSIMD_RVV_WRAPPER_TAIL(__VA_ARGS__)
 #define XSIMD_RVV_WRAPPER_TAIL_DROP_1ST(...) XSIMD_RVV_WRAPPER_TAIL(__VA_ARGS__)
 #define XSIMD_RVV_WRAPPER_TAIL_DROP_1ST_CUSTOM_ARGS(...) XSIMD_RVV_WRAPPER_TAIL(__VA_ARGS__)
@@ -367,7 +367,7 @@ namespace xsimd
             template <class A, class T, size_t offset = 0, int shift = 0>
             XSIMD_INLINE rvv_reg_t<T, A::width> vindex() noexcept
             {
-                auto index = rvvid(T {});
+                auto index = rvvid(T { });
                 if (shift < 0)
                     index = __riscv_vsrl(index, -shift, batch<T, A>::size);
                 else
@@ -425,7 +425,7 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> load_unaligned(T const* src, convert<T>, requires_arch<rvv>) noexcept
         {
-            return load_aligned<A>(src, convert<T>(), rvv {});
+            return load_aligned<A>(src, convert<T>(), rvv { });
         }
 
         // load_masked (runtime mask): native vle*.v vd, (rs1), v0.t with zero-init
@@ -434,7 +434,7 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, Mode, requires_arch<rvv>) noexcept
         {
             using proj_t = map_to_sized_type_t<T>;
-            const auto zero = detail_rvv::rvvmv_splat(proj_t {});
+            const auto zero = detail_rvv::rvvmv_splat(proj_t { });
             return detail_rvv::rvvle_mu(mask, zero, reinterpret_cast<proj_t const*>(mem));
         }
 
@@ -460,13 +460,13 @@ namespace xsimd
             template <class T, size_t W, std::enable_if_t<W >= types::detail::rvv_width_m1, int> = 0>
             XSIMD_INLINE rvv_reg_t<T, W> rvvget_lo(rvv_reg_t<T, W * 2> const& vv) noexcept
             {
-                typename rvv_reg_t<T, W>::register_type tmp = rvvget_lo_(T {}, vv);
+                typename rvv_reg_t<T, W>::register_type tmp = rvvget_lo_(T { }, vv);
                 return tmp;
             }
             template <class T, size_t W, std::enable_if_t<W >= types::detail::rvv_width_m1, int> = 0>
             XSIMD_INLINE rvv_reg_t<T, W> rvvget_hi(rvv_reg_t<T, W * 2> const& vv) noexcept
             {
-                typename rvv_reg_t<T, W>::register_type tmp = rvvget_hi_(T {}, vv);
+                typename rvv_reg_t<T, W>::register_type tmp = rvvget_hi_(T { }, vv);
                 return tmp;
             }
             template <class T, size_t W, std::enable_if_t<W<types::detail::rvv_width_m1, int> = 0> XSIMD_INLINE rvv_reg_t<T, W> rvvget_lo(rvv_reg_t<T, W * 2> const& vv) noexcept
@@ -512,7 +512,7 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE void store_unaligned(T* dst, batch<T, A> const& src, requires_arch<rvv>) noexcept
         {
-            store_aligned<A>(dst, src, rvv {});
+            store_aligned<A>(dst, src, rvv { });
         }
 
         // store_masked (runtime mask): native vse*.v vd, (rs1), v0.t — inactive lanes
@@ -763,18 +763,15 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> fms(batch<T, A> const& x, batch<T, A> const& y, batch<T, A> const& z, requires_arch<rvv>) noexcept
         {
-            // also vfmsac(z, x, y), but lacking integer version
-            // also vfmsub(x, y, z), but lacking integer version
-            return -fnma(x, y, z);
+            // negating after the fused subtract flips the sign of exact zeros
+            return detail_rvv::rvvmacc(-z, x, y);
         }
 
         // fnms: - x * y - z
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> fnms(batch<T, A> const& x, batch<T, A> const& y, batch<T, A> const& z, requires_arch<rvv>) noexcept
         {
-            // also vfnmacc(z, x, y), but lacking integer version
-            // also vfnmadd(x, y, z), but lacking integer version
-            return -fma(z, x, y);
+            return detail_rvv::rvvmacc(-z, -x, y);
         }
 
         /**********************
@@ -1022,9 +1019,9 @@ namespace xsimd
 #pragma unroll size
             for (std::size_t i = 0; i < size; ++i)
             {
-                sums[i] = reduce_add(row[i], rvv {});
+                sums[i] = reduce_add(row[i], rvv { });
             }
-            return load_aligned<A>(sums, convert<T>(), rvv {});
+            return load_aligned<A>(sums, convert<T>(), rvv { });
         }
 
         /***************
@@ -1097,7 +1094,7 @@ namespace xsimd
         template <class A, class T>
         XSIMD_INLINE batch<T, A> compress(batch<T, A> const& x, batch_bool<T, A> const& mask, requires_arch<rvv>) noexcept
         {
-            auto zero = broadcast<A>(T(0), rvv {});
+            auto zero = broadcast<A>(T(0), rvv { });
             return detail_rvv::rvvcompress(zero, x, mask);
         }
 
@@ -1125,8 +1122,8 @@ namespace xsimd
                                                        batch_constant<I, A, idx...>,
                                                        requires_arch<rvv>) noexcept
         {
-            const auto real = swizzle(self.real(), batch_constant<I, A, idx...> {}, rvv {});
-            const auto imag = swizzle(self.imag(), batch_constant<I, A, idx...> {}, rvv {});
+            const auto real = swizzle(self.real(), batch_constant<I, A, idx...> { }, rvv { });
+            const auto imag = swizzle(self.imag(), batch_constant<I, A, idx...> { }, rvv { });
             return batch<std::complex<T>>(real, imag);
         }
 
@@ -1153,7 +1150,7 @@ namespace xsimd
         template <class A, class T, bool... b>
         XSIMD_INLINE batch<T, A> select(batch_bool_constant<T, A, b...> const&, batch<T, A> const& true_br, batch<T, A> const& false_br, requires_arch<rvv>) noexcept
         {
-            return select(batch_bool<T, A> { b... }, true_br, false_br, rvv {});
+            return select(batch_bool<T, A> { b... }, true_br, false_br, rvv { });
         }
 
         // zip_lo
@@ -1185,14 +1182,14 @@ namespace xsimd
             const auto lo = zip_lo(src.real(), src.imag());
             const auto hi = zip_hi(src.real(), src.imag());
             T* buf = reinterpret_cast<T*>(dst);
-            store_aligned(buf, lo, rvv {});
-            store_aligned(buf + lo.size, hi, rvv {});
+            store_aligned(buf, lo, rvv { });
+            store_aligned(buf + lo.size, hi, rvv { });
         }
 
         template <class A, class T, detail::enable_floating_point_t<T> = 0>
         XSIMD_INLINE void store_complex_unaligned(std::complex<T>* dst, batch<std::complex<T>, A> const& src, requires_arch<rvv>) noexcept
         {
-            store_complex_aligned(dst, src, rvv {});
+            store_complex_aligned(dst, src, rvv { });
         }
 
         /*****************************
@@ -1264,7 +1261,7 @@ namespace xsimd
             template <class A, class T, class U, detail_rvv::rvv_enable_ftoi_t<T, U> = 0>
             XSIMD_INLINE batch<U, A> fast_cast(batch<T, A> const& arg, batch<U, A> const&, requires_arch<rvv>) noexcept
             {
-                return detail_rvv::rvvfcvt_rtz(U {}, arg);
+                return detail_rvv::rvvfcvt_rtz(U { }, arg);
             }
             template <class A, class T, class U, detail_rvv::rvv_enable_itof_t<T, U> = 0>
             XSIMD_INLINE batch<U, A> fast_cast(batch<T, A> const& arg, batch<U, A> const&, requires_arch<rvv>) noexcept
@@ -1282,23 +1279,23 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> set(batch<T, A> const&, requires_arch<rvv>, Args... args) noexcept
         {
             const std::array<T, batch<T, A>::size> tmp { args... };
-            return load_unaligned<A>(tmp.data(), convert<T>(), rvv {});
+            return load_unaligned<A>(tmp.data(), convert<T>(), rvv { });
         }
 
         template <class A, class T, class... Args>
         XSIMD_INLINE batch<std::complex<T>, A> set(batch<std::complex<T>, A> const&, requires_arch<rvv>,
                                                    Args... args_complex) noexcept
         {
-            return batch<std::complex<T>>(set(batch<T, rvv> {}, rvv {}, args_complex.real()...),
-                                          set(batch<T, rvv> {}, rvv {}, args_complex.imag()...));
+            return batch<std::complex<T>>(set(batch<T, rvv> { }, rvv { }, args_complex.real()...),
+                                          set(batch<T, rvv> { }, rvv { }, args_complex.imag()...));
         }
 
         template <class A, class T, class... Args>
         XSIMD_INLINE batch_bool<T, A> set(batch_bool<T, A> const&, requires_arch<rvv>, Args... args) noexcept
         {
             using U = as_unsigned_integer_t<T>;
-            const auto values = set(batch<U, rvv> {}, rvv {}, static_cast<U>(args)...);
-            const auto zero = broadcast<A>(U(0), rvv {});
+            const auto values = set(batch<U, rvv> { }, rvv { }, static_cast<U>(args)...);
+            const auto zero = broadcast<A>(U(0), rvv { });
             detail_rvv::rvv_bool_t<T> result = detail_rvv::rvvmsne(values, zero);
             return result;
         }
@@ -1348,7 +1345,7 @@ namespace xsimd
             {
                 return detail_rvv::rvvmv_lane0(arg);
             }
-            return get(arg, I, rvv {});
+            return get(arg, I, rvv { });
         }
 
         template <class A, size_t I, class T, detail::enable_arithmetic_t<T> = 0>
@@ -1358,7 +1355,7 @@ namespace xsimd
             {
                 return std::complex<T> { detail_rvv::rvvmv_lane0(arg.real()), detail_rvv::rvvmv_lane0(arg.imag()) };
             }
-            return get(arg, I, rvv {});
+            return get(arg, I, rvv { });
         }
 
         // all
@@ -1394,7 +1391,7 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> from_bool(batch_bool<T, A> const& arg, requires_arch<rvv>) noexcept
         {
-            const auto zero = broadcast<A>(T(0), rvv {});
+            const auto zero = broadcast<A>(T(0), rvv { });
             return detail_rvv::rvvmerge_splat(zero, T(1), arg);
         }
 
@@ -1432,7 +1429,7 @@ namespace xsimd
         template <size_t N, class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> slide_left(batch<T, A> const& arg, requires_arch<rvv>) noexcept
         {
-            const auto zero = broadcast<A>(uint8_t(0), rvv {});
+            const auto zero = broadcast<A>(uint8_t(0), rvv { });
             const auto bytes = arg.data.get_bytes();
             return detail_rvv::rvvreinterpret<T>(detail_rvv::rvvslideup(zero, bytes, N));
         }
@@ -1461,13 +1458,13 @@ namespace xsimd
             template <class A, class T, class U = rvv_as_signed_integer_t<T>>
             XSIMD_INLINE batch<U, A> rvvfcvt_default(batch<T, A> const& arg) noexcept
             {
-                return rvvfcvt_rne(U {}, arg);
+                return rvvfcvt_rne(U { }, arg);
             }
 
             template <class A, class T, class U = rvv_as_signed_integer_t<T>>
             XSIMD_INLINE batch<U, A> rvvfcvt_afz(batch<T, A> const& arg) noexcept
             {
-                return rvvfcvt_rmm(U {}, arg);
+                return rvvfcvt_rmm(U { }, arg);
             }
         }
 
@@ -1485,7 +1482,7 @@ namespace xsimd
         {
             // Round ties away from zero.
             const auto mask = abs(arg) < constants::maxflint<batch<T, A>>();
-            return select(mask, to_float(detail_rvv::rvvfcvt_afz(arg)), arg, rvv {});
+            return select(mask, to_float(detail_rvv::rvvfcvt_afz(arg)), arg, rvv { });
         }
 
         // nearbyint
@@ -1494,7 +1491,7 @@ namespace xsimd
         {
             // Round according to current rounding mode.
             const auto mask = abs(arg) < constants::maxflint<batch<T, A>>();
-            return select(mask, to_float(detail_rvv::rvvfcvt_default(arg)), arg, rvv {});
+            return select(mask, to_float(detail_rvv::rvvfcvt_default(arg)), arg, rvv { });
         }
 
         // mask
@@ -1509,7 +1506,7 @@ namespace xsimd
                 // (A) Easy case: the number of slots fits in T.
                 const auto zero = detail_rvv::broadcast<as_unsigned_integer_t<T>, types::detail::rvv_width_m1>(T(0));
                 auto ones = detail_rvv::broadcast<as_unsigned_integer_t<T>, A::width>(1);
-                auto iota = detail_rvv::rvvid(as_unsigned_integer_t<T> {});
+                auto iota = detail_rvv::rvvid(as_unsigned_integer_t<T> { });
                 auto upowers = detail_rvv::rvvsll(ones, iota);
                 auto r = __riscv_vredor(self.data.as_mask(), upowers, (typename decltype(zero)::register_type)zero, batch_bool<T, A>::size);
                 return detail_rvv::reduce_scalar<A, as_unsigned_integer_t<T>>(r);
@@ -1530,7 +1527,7 @@ namespace xsimd
                 // The low part is similar to the approach in (A).
                 const auto zero = detail_rvv::broadcast<as_unsigned_integer_t<T>, types::detail::rvv_width_m1>(T(0));
                 auto ones = detail_rvv::broadcast<as_unsigned_integer_t<T>, A::width>(1);
-                auto iota = detail_rvv::rvvid(as_unsigned_integer_t<T> {});
+                auto iota = detail_rvv::rvvid(as_unsigned_integer_t<T> { });
                 auto upowers = detail_rvv::rvvsll(ones, iota);
                 auto low_mask = self & make_batch_bool_constant<T, LowerHalf, A>();
                 auto r_low = __riscv_vredor(low_mask.data.as_mask(), upowers, (typename decltype(zero)::register_type)zero, batch_bool<T, A>::size);
@@ -1546,7 +1543,7 @@ namespace xsimd
             else
             {
                 // (C) we could generalize (B) but we already cover a lot of case now.
-                return mask(self, common {});
+                return mask(self, common { });
             }
         }
     } // namespace kernel

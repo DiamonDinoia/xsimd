@@ -47,7 +47,7 @@ namespace xsimd
                 XSIMD_INLINE svbool_t ptrue_impl(index<8>) noexcept { return svptrue_b64(); }
 
                 template <class T>
-                XSIMD_INLINE svbool_t ptrue() noexcept { return ptrue_impl(index<sizeof(T)> {}); }
+                XSIMD_INLINE svbool_t ptrue() noexcept { return ptrue_impl(index<sizeof(T)> { }); }
 
                 // count active lanes in a predicate
                 XSIMD_INLINE uint64_t pcount_impl(svbool_t p, index<1>) noexcept { return svcntp_b8(p, p); }
@@ -56,7 +56,7 @@ namespace xsimd
                 XSIMD_INLINE uint64_t pcount_impl(svbool_t p, index<8>) noexcept { return svcntp_b64(p, p); }
 
                 template <class T>
-                XSIMD_INLINE uint64_t pcount(svbool_t p) noexcept { return pcount_impl(p, index<sizeof(T)> {}); }
+                XSIMD_INLINE uint64_t pcount(svbool_t p) noexcept { return pcount_impl(p, index<sizeof(T)> { }); }
 
                 // enable for signed integers or floating points
                 template <class T>
@@ -87,7 +87,7 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> load_unaligned(T const* src, convert<T>, requires_arch<sve>) noexcept
         {
-            return load_aligned<A>(src, convert<T>(), sve {});
+            return load_aligned<A>(src, convert<T>(), sve { });
         }
 
         // load_masked (compile-time mask): forward to the runtime path; the
@@ -99,7 +99,7 @@ namespace xsimd
                   std::enable_if_t<!(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8)), int> = 0>
         XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool_constant<T, A, Values...> mask, convert<T>, Mode m, requires_arch<sve>) noexcept
         {
-            return load_masked<A>(mem, mask.as_batch_bool(), convert<T> {}, m, sve {});
+            return load_masked<A>(mem, mask.as_batch_bool(), convert<T> { }, m, sve { });
         }
 
         // load_masked (runtime mask)
@@ -123,7 +123,7 @@ namespace xsimd
         template <class A, class T, detail::enable_floating_point_t<T> = 0>
         XSIMD_INLINE batch<std::complex<T>, A> load_complex_unaligned(std::complex<T> const* mem, convert<std::complex<T>>, requires_arch<sve>) noexcept
         {
-            return load_complex_aligned<A>(mem, convert<std::complex<T>> {}, sve {});
+            return load_complex_aligned<A>(mem, convert<std::complex<T>> { }, sve { });
         }
 
         /*********
@@ -139,7 +139,7 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE void store_unaligned(T* dst, batch<T, A> const& src, requires_arch<sve>) noexcept
         {
-            store_aligned<A>(dst, src, sve {});
+            store_aligned<A>(dst, src, sve { });
         }
 
         // store_masked (compile-time mask): forward to the runtime-mask
@@ -150,7 +150,7 @@ namespace xsimd
                   std::enable_if_t<!(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8)), int> = 0>
         XSIMD_INLINE void store_masked(T* mem, batch<T, A> const& src, batch_bool_constant<T, A, Values...> mask, Mode m, requires_arch<sve>) noexcept
         {
-            store_masked<A>(mem, src, mask.as_batch_bool(), m, sve {});
+            store_masked<A>(mem, src, mask.as_batch_bool(), m, sve { });
         }
 
         // store_masked (runtime mask)
@@ -165,7 +165,7 @@ namespace xsimd
         XSIMD_INLINE void store_complex_aligned(std::complex<T>* dst, batch<std::complex<T>, A> const& src, requires_arch<sve>) noexcept
         {
             using v2type = std::conditional_t<(sizeof(T) == 4), svfloat32x2_t, svfloat64x2_t>;
-            v2type tmp {};
+            v2type tmp { };
             tmp = svset2(tmp, 0, src.real());
             tmp = svset2(tmp, 1, src.imag());
             T* buf = reinterpret_cast<T*>(dst);
@@ -175,7 +175,7 @@ namespace xsimd
         template <class A, class T, detail::enable_floating_point_t<T> = 0>
         XSIMD_INLINE void store_complex_unaligned(std::complex<T>* dst, batch<std::complex<T>, A> const& src, requires_arch<sve>) noexcept
         {
-            store_complex_aligned(dst, src, sve {});
+            store_complex_aligned(dst, src, sve { });
         }
 
         /******************
@@ -270,7 +270,7 @@ namespace xsimd
         template <class A, class T, detail::enable_floating_point_t<T> = 0>
         XSIMD_INLINE batch<T, A> broadcast(T val, requires_arch<sve>) noexcept
         {
-            return broadcast<sve>(val, sve {});
+            return broadcast<sve>(val, sve { });
         }
 
         /**************
@@ -402,14 +402,15 @@ namespace xsimd
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> fms(batch<T, A> const& x, batch<T, A> const& y, batch<T, A> const& z, requires_arch<sve>) noexcept
         {
-            return -fnma(x, y, z, sve {});
+            // negating after the fused subtract flips the sign of exact zeros
+            return svmad_x(detail_sve::ptrue<T>(), x, y, -z);
         }
 
         // fnms: - x * y - z
         template <class A, class T, detail::enable_arithmetic_t<T> = 0>
         XSIMD_INLINE batch<T, A> fnms(batch<T, A> const& x, batch<T, A> const& y, batch<T, A> const& z, requires_arch<sve>) noexcept
         {
-            return -fma(x, y, z, sve {});
+            return svmad_x(detail_sve::ptrue<T>(), -x, y, -z);
         }
 
         /**********************
@@ -604,7 +605,7 @@ namespace xsimd
                 template <class A, class T, class U = as_unsigned_integer_t<T>>
                 XSIMD_INLINE batch<U, A> to_unsigned_batch(batch<T, A> const& arg) noexcept
                 {
-                    return to_unsigned_batch_impl<A, T, U>(arg, index<sizeof(T)> {});
+                    return to_unsigned_batch_impl<A, T, U>(arg, index<sizeof(T)> { });
                 }
             } // namespace XSIMD_SVE_NAMESPACE
         } // namespace detail_sve
@@ -687,7 +688,7 @@ namespace xsimd
             T sums[size];
             for (std::size_t i = 0; i < size; ++i)
             {
-                sums[i] = reduce_add(row[i], sve {});
+                sums[i] = reduce_add(row[i], sve { });
             }
             return svld1(detail_sve::ptrue<T>(), sums);
         }
@@ -774,8 +775,8 @@ namespace xsimd
                                                        batch<I, A> indices,
                                                        requires_arch<sve>) noexcept
         {
-            const auto real = swizzle(self.real(), indices, sve {});
-            const auto imag = swizzle(self.imag(), indices, sve {});
+            const auto real = swizzle(self.real(), indices, sve { });
+            const auto imag = swizzle(self.imag(), indices, sve { });
             return batch<std::complex<T>>(real, imag);
         }
 
@@ -784,7 +785,7 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> swizzle(batch<T, A> const& arg, batch_constant<I, A, idx...> indices, requires_arch<sve>) noexcept
         {
             static_assert(batch<T, A>::size == sizeof...(idx), "invalid swizzle indices");
-            return swizzle(arg, indices.as_batch(), sve {});
+            return swizzle(arg, indices.as_batch(), sve { });
         }
 
         template <class A, class T, class I, I... idx>
@@ -793,7 +794,7 @@ namespace xsimd
                                                        requires_arch<sve>) noexcept
         {
             static_assert(batch<std::complex<T>, A>::size == sizeof...(idx), "invalid swizzle indices");
-            return swizzle(arg, indices.as_batch(), sve {});
+            return swizzle(arg, indices.as_batch(), sve { });
         }
 
         /*************
@@ -809,7 +810,7 @@ namespace xsimd
                 XSIMD_INLINE batch<T, A> extract_pair(batch<T, A> const&, batch<T, A> const& /*rhs*/, std::size_t, std::index_sequence<>) noexcept
                 {
                     assert(false && "extract_pair out of bounds");
-                    return batch<T, A> {};
+                    return batch<T, A> { };
                 }
 
                 template <class A, class T, size_t I, size_t... Is>
@@ -858,7 +859,7 @@ namespace xsimd
         template <class A, class T, bool... b>
         XSIMD_INLINE batch<T, A> select(batch_bool_constant<T, A, b...> const&, batch<T, A> const& true_br, batch<T, A> const& false_br, requires_arch<sve>) noexcept
         {
-            return select(batch_bool<T, A> { b... }, true_br, false_br, sve {});
+            return select(batch_bool<T, A> { b... }, true_br, false_br, sve { });
         }
 
         // zip_lo
@@ -972,7 +973,7 @@ namespace xsimd
         {
             using U = as_unsigned_integer_t<T>;
             const auto values = detail_sve::sve_vector_type<U> { static_cast<U>(args)... };
-            const auto zero = broadcast<A, U>(static_cast<U>(0), sve {});
+            const auto zero = broadcast<A, U>(static_cast<U>(0), sve { });
             return svcmpne(detail_sve::ptrue<T>(), values, zero);
         }
 
@@ -988,7 +989,7 @@ namespace xsimd
                 XSIMD_INLINE svuint64_t iota_impl(index<8>) noexcept { return svindex_u64(0, 1); }
 
                 template <class T, class V = sve_vector_type<as_unsigned_integer_t<T>>>
-                XSIMD_INLINE V iota() noexcept { return iota_impl(index<sizeof(T)> {}); }
+                XSIMD_INLINE V iota() noexcept { return iota_impl(index<sizeof(T)> { }); }
             } // namespace XSIMD_SVE_NAMESPACE
         } // namespace detail_sve
 
@@ -998,7 +999,7 @@ namespace xsimd
             // create a predicate with only the I-th lane activated
             const auto iota = detail_sve::iota<T>();
             const auto index_predicate = svcmpeq(detail_sve::ptrue<T>(), iota, static_cast<as_unsigned_integer_t<T>>(I));
-            return svsel(index_predicate, static_cast<detail_sve::sizeless_t<T>>(broadcast<A, T>(val, sve {})), static_cast<detail_sve::sizeless_t<T>>(arg));
+            return svsel(index_predicate, static_cast<detail_sve::sizeless_t<T>>(broadcast<A, T>(val, sve { })), static_cast<detail_sve::sizeless_t<T>>(arg));
         }
 
         // first
@@ -1110,9 +1111,9 @@ namespace xsimd
                     {
                         using u8_vector = batch<uint8_t, A>;
                         const auto left = svdup_n_u8(0);
-                        const auto right = bitwise_cast(arg, u8_vector {}, sve {}).data;
+                        const auto right = bitwise_cast(arg, u8_vector { }, sve { }).data;
                         const u8_vector result(svext(left, right, u8_vector::size - N));
-                        return bitwise_cast(result, batch<T, A> {}, sve {});
+                        return bitwise_cast(result, batch<T, A> { }, sve { });
                     }
                 };
 
@@ -1146,10 +1147,10 @@ namespace xsimd
                     XSIMD_INLINE batch<T, A> operator()(batch<T, A> const& arg) noexcept
                     {
                         using u8_vector = batch<uint8_t, A>;
-                        const auto left = bitwise_cast(arg, u8_vector {}, sve {}).data;
+                        const auto left = bitwise_cast(arg, u8_vector { }, sve { }).data;
                         const auto right = svdup_n_u8(0);
                         const u8_vector result(svext(left, right, N));
-                        return bitwise_cast(result, batch<T, A> {}, sve {});
+                        return bitwise_cast(result, batch<T, A> { }, sve { });
                     }
                 };
 
@@ -1159,7 +1160,7 @@ namespace xsimd
                     template <class A, class T>
                     XSIMD_INLINE batch<T, A> operator()(batch<T, A> const&) noexcept
                     {
-                        return batch<T, A> {};
+                        return batch<T, A> { };
                     }
                 };
             } // namespace XSIMD_SVE_NAMESPACE
