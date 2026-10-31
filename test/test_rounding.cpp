@@ -190,6 +190,20 @@ namespace rounding_fenv_detail
 #endif
     }
 
+#if defined(_MSC_VER)
+#define XSIMD_TEST_NOINLINE __declspec(noinline)
+#else
+#define XSIMD_TEST_NOINLINE __attribute__((noinline))
+#endif
+
+    // The simd call must run at runtime and stay between the two fenv calls. A
+    // call cannot be reordered across them and cannot be constant folded away.
+    template <class F, class B>
+    XSIMD_TEST_NOINLINE B call(F f, B in) noexcept
+    {
+        return f(in);
+    }
+
     // NaN payloads are unspecified across implementations, so compare the class only
     template <class T>
     inline bool same_bits(T a, T b) noexcept
@@ -215,6 +229,9 @@ struct rounding_fenv_test
 
     rounding_fenv_test()
     {
+        // The values cross a volatile load so the compiler cannot fold the simd
+        // calls at compile time: folded FP math raises no flags at runtime.
+        volatile value_type one = value_type(1);
         const value_type mf = std::ldexp(value_type(1), std::numeric_limits<value_type>::digits - 1);
         const value_type qnan = std::numeric_limits<value_type>::quiet_NaN();
         const value_type inf = std::numeric_limits<value_type>::infinity();
@@ -234,6 +251,10 @@ struct rounding_fenv_test
         input[13] = mf * value_type(2);
         input[14] = -(mf - value_type(0.5));
         input[15] = value_type(1.0);
+        for (size_t i = 0; i < nb_input; ++i)
+        {
+            input[i] = input[i] * one;
+        }
     }
 
     template <class F, class G>
@@ -245,7 +266,7 @@ struct rounding_fenv_test
             detail::load_batch(in, input, i * size);
             std::feclearexcept(FE_ALL_EXCEPT);
             rounding_fenv_detail::barrier();
-            batch_type out = simd_fn(in);
+            batch_type out = rounding_fenv_detail::call(simd_fn, in);
             rounding_fenv_detail::barrier();
             const int flags = std::fetestexcept(FE_ALL_EXCEPT);
             INFO(name, ": FE_INEXACT must stay clear");
@@ -284,7 +305,9 @@ struct rounding_fenv_test
             detail::load_batch(in, input, 0);
             std::feclearexcept(FE_ALL_EXCEPT);
             rounding_fenv_detail::barrier();
-            batch_type out = rint(in);
+            batch_type out = rounding_fenv_detail::call([](batch_type x)
+                                                        { return rint(x); },
+                                                        in);
             rounding_fenv_detail::barrier();
             INFO("rint: FE_INEXACT must be raised for non-integer input");
             CHECK((std::fetestexcept(FE_ALL_EXCEPT) & FE_INEXACT) != 0);
