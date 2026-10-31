@@ -1912,20 +1912,6 @@ namespace xsimd
                 batch_type d = d0 - t2n;
                 return s ^ select(v < t2n, d, v);
             }
-#if defined(FE_INEXACT) && XSIMD_WITH_INLINE_ASM && !defined(__EMSCRIPTEN__)
-            // Pin the rounding between the two fenv reads; without this the compiler may
-            // move the arithmetic past std::fetestexcept and misattribute its flag.
-            template <class T>
-            XSIMD_INLINE void fenv_fence(T& v) noexcept
-            {
-                __asm__ volatile("" : "+m"(v) : : "memory");
-            }
-#else
-            template <class T>
-            XSIMD_INLINE void fenv_fence(T&) noexcept
-            {
-            }
-#endif
         }
         template <class A>
         XSIMD_INLINE batch<float, A> nearbyint(batch<float, A> const& self, requires_arch<common>) noexcept

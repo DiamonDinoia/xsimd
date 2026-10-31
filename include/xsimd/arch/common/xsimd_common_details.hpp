@@ -17,6 +17,7 @@
 #include "../../types/xsimd_utils.hpp"
 #include "../xsimd_constants.hpp"
 
+#include <cfenv>
 #include <complex>
 
 namespace xsimd
@@ -174,6 +175,54 @@ namespace xsimd
 #else
                 reassociation_barrier(b.data, reason);
 #endif
+            }
+
+#if defined(FE_INEXACT) && XSIMD_WITH_INLINE_ASM && !defined(__EMSCRIPTEN__)
+            // Pin the rounding between the two fenv reads; without this the compiler may
+            // move the arithmetic past std::fetestexcept and misattribute its flag.
+            template <class T>
+            XSIMD_INLINE void fenv_fence(T& v) noexcept
+            {
+                __asm__ volatile("" : "+m"(v) : : "memory");
+            }
+#else
+            template <class T>
+            XSIMD_INLINE void fenv_fence(T&) noexcept
+            {
+            }
+#endif
+
+            // trunc raises no exception (C17 7.12.9.8). The magic add rounds |self|
+            // to an integer whatever the rounding mode is and one decrement turns
+            // that into floor; the add can raise FE_INEXACT, so drop only that flag
+            // and only when it was clear before.
+            template <class A, class T>
+            XSIMD_INLINE batch<T, A> truncf_impl(batch<T, A> const& self) noexcept
+            {
+                using batch_type = batch<T, A>;
+                batch_type sign = bitofsign(self);
+                batch_type v = self ^ sign; // |self|
+                // twotonmb = 2^SigBits: |self| >= it is integral, and the add lands
+                // on the unit grid in [2^SigBits, 2^(SigBits+1))
+                batch_type t2n = constants::twotonmb<batch_type>();
+                auto big = !(v < t2n); // >= 2^SigBits or nan, already integral
+                batch_type vs = select(big, batch_type(0), v);
+#if defined(FE_INEXACT)
+                const int raised = std::fetestexcept(FE_INEXACT);
+#endif
+                batch_type d0 = vs + t2n;
+                reassociation_barrier(d0, "prevent collapsing (v + 2^n) - 2^n back to v");
+                batch_type d = d0 - t2n;
+                d = d - select(d > vs, batch_type(1), batch_type(0)); // floor(|self|), exact
+                batch_type r = select(big, self, d ^ sign);
+#if defined(FE_INEXACT)
+                fenv_fence(r);
+                if (!(raised & FE_INEXACT) && std::fetestexcept(FE_INEXACT))
+                {
+                    std::feclearexcept(FE_INEXACT);
+                }
+#endif
+                return r;
             }
 
             template <class F, class A, class T, class... Batches>

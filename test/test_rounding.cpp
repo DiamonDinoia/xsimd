@@ -17,6 +17,7 @@
 #include <cfenv>
 #include <cstring>
 #include <limits>
+#include <string>
 
 // The flag checks need FP exception flags and flag-free rounding kernels. wasm has
 // no flags, and the vsx/vxe kernels (ppc, s390x) are audited as raising or unverifiable.
@@ -269,14 +270,14 @@ struct rounding_fenv_test
             batch_type out = rounding_fenv_detail::call(simd_fn, in);
             rounding_fenv_detail::barrier();
             const int flags = std::fetestexcept(FE_ALL_EXCEPT);
-            INFO(name, ": FE_INEXACT must stay clear");
+            INFO(std::string(name), ": FE_INEXACT must stay clear");
             CHECK((flags & FE_INEXACT) == 0);
             value_type got[size];
             out.store_unaligned(got);
             for (size_t j = 0; j < size; ++j)
             {
                 const value_type ref = std_fn(input[i * size + j]);
-                INFO(name, ": lane ", i * size + j);
+                INFO(std::string(name), ": lane ", i * size + j);
                 CHECK(rounding_fenv_detail::same_bits(ref, got[j]));
             }
         }
