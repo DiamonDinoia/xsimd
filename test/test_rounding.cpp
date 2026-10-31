@@ -241,20 +241,22 @@ struct rounding_fenv_test
     {
         for (size_t i = 0; i < nb_batches; ++i)
         {
-            alignas(B::alignment()) value_type in[size], out[size];
-            std::copy(input.begin() + i * size, input.begin() + (i + 1) * size, in);
+            batch_type in;
+            detail::load_batch(in, input, i * size);
             std::feclearexcept(FE_ALL_EXCEPT);
             rounding_fenv_detail::barrier();
-            simd_fn(batch_type::load_aligned(in)).store_aligned(out);
+            batch_type out = simd_fn(in);
             rounding_fenv_detail::barrier();
             const int flags = std::fetestexcept(FE_ALL_EXCEPT);
             INFO(name, ": FE_INEXACT must stay clear");
             CHECK((flags & FE_INEXACT) == 0);
+            value_type got[size];
+            out.store_unaligned(got);
             for (size_t j = 0; j < size; ++j)
             {
                 const value_type ref = std_fn(input[i * size + j]);
                 INFO(name, ": lane ", i * size + j);
-                CHECK(rounding_fenv_detail::same_bits(ref, out[j]));
+                CHECK(rounding_fenv_detail::same_bits(ref, got[j]));
             }
         }
     }
@@ -278,18 +280,20 @@ struct rounding_fenv_test
                         { return std::nearbyint(v); });
         // 7.12.9.6: rint may raise inexact and must keep doing so when the result differs
         {
-            alignas(B::alignment()) value_type in[size], out[size];
-            std::copy(input.begin(), input.begin() + size, in);
+            batch_type in;
+            detail::load_batch(in, input, 0);
             std::feclearexcept(FE_ALL_EXCEPT);
             rounding_fenv_detail::barrier();
-            rint(batch_type::load_aligned(in)).store_aligned(out);
+            batch_type out = rint(in);
             rounding_fenv_detail::barrier();
             INFO("rint: FE_INEXACT must be raised for non-integer input");
             CHECK((std::fetestexcept(FE_ALL_EXCEPT) & FE_INEXACT) != 0);
+            value_type got[size];
+            out.store_unaligned(got);
             for (size_t j = 0; j < size; ++j)
             {
                 INFO("rint: lane ", j);
-                CHECK(rounding_fenv_detail::same_bits(std::rint(input[j]), out[j]));
+                CHECK(rounding_fenv_detail::same_bits(std::rint(input[j]), got[j]));
             }
             std::feclearexcept(FE_ALL_EXCEPT);
         }
