@@ -75,6 +75,8 @@ namespace xsimd
     template <class T, class A>
     XSIMD_INLINE batch<as_integer_t<T>, A> nearbyint_as_int(const batch<T, A>& x) noexcept;
     template <class T, class A>
+    XSIMD_INLINE batch<T, A> rint(batch<T, A> const& self) noexcept;
+    template <class T, class A>
     XSIMD_INLINE T reduce_add(batch<T, A> const&) noexcept;
     template <class T, class A>
     XSIMD_INLINE T reduce_mul(batch<T, A> const&) noexcept;

@@ -14,6 +14,16 @@
 
 #include "test_utils.hpp"
 
+#include <cfenv>
+#include <cstring>
+#include <limits>
+
+// The flag checks need FP exception flags and flag-free rounding kernels. wasm has
+// no flags, and the vsx/vxe kernels (ppc, s390x) are audited as raising or unverifiable.
+#if defined(FE_INEXACT) && !defined(__EMSCRIPTEN__) && !defined(__powerpc__) && !defined(__s390__)
+#define XSIMD_ROUNDING_FENV_TEST 1
+#endif
+
 template <class B>
 struct rounding_test
 {
@@ -167,4 +177,129 @@ TEST_CASE_TEMPLATE("[rounding]", B, BATCH_FLOAT_TYPES)
     rounding_test<B> Test;
     Test.test_rounding_functions();
 }
+
+#ifdef XSIMD_ROUNDING_FENV_TEST
+#pragma STDC FENV_ACCESS ON
+
+namespace rounding_fenv_detail
+{
+    inline void barrier() noexcept
+    {
+#if defined(__GNUC__) || defined(__clang__)
+        asm volatile("" ::: "memory");
+#endif
+    }
+
+    // NaN payloads are unspecified across implementations, so compare the class only
+    template <class T>
+    inline bool same_bits(T a, T b) noexcept
+    {
+        if (std::isnan(a) && std::isnan(b))
+        {
+            return true;
+        }
+        return std::memcmp(&a, &b, sizeof(T)) == 0;
+    }
+}
+
+template <class B>
+struct rounding_fenv_test
+{
+    using batch_type = B;
+    using value_type = typename B::value_type;
+    static constexpr size_t size = B::size;
+    static constexpr size_t nb_input = 16;
+    static constexpr size_t nb_batches = nb_input / size;
+
+    std::array<value_type, nb_input> input;
+
+    rounding_fenv_test()
+    {
+        const value_type mf = std::ldexp(value_type(1), std::numeric_limits<value_type>::digits - 1);
+        const value_type qnan = std::numeric_limits<value_type>::quiet_NaN();
+        const value_type inf = std::numeric_limits<value_type>::infinity();
+        input[0] = value_type(0.5);
+        input[1] = value_type(-2.5);
+        input[2] = value_type(3.75);
+        input[3] = value_type(-3.75);
+        input[4] = value_type(2.0);
+        input[5] = value_type(-3.0);
+        input[6] = value_type(0.0);
+        input[7] = value_type(-0.0);
+        input[8] = inf;
+        input[9] = -inf;
+        input[10] = qnan;
+        input[11] = mf - value_type(0.5);
+        input[12] = mf;
+        input[13] = mf * value_type(2);
+        input[14] = -(mf - value_type(0.5));
+        input[15] = value_type(1.0);
+    }
+
+    template <class F, class G>
+    void check_flag_free(const char* name, F simd_fn, G std_fn)
+    {
+        for (size_t i = 0; i < nb_batches; ++i)
+        {
+            alignas(B::alignment()) value_type in[size], out[size];
+            std::copy(input.begin() + i * size, input.begin() + (i + 1) * size, in);
+            std::feclearexcept(FE_ALL_EXCEPT);
+            rounding_fenv_detail::barrier();
+            simd_fn(batch_type::load_aligned(in)).store_aligned(out);
+            rounding_fenv_detail::barrier();
+            const int flags = std::fetestexcept(FE_ALL_EXCEPT);
+            INFO(name, ": FE_INEXACT must stay clear");
+            CHECK((flags & FE_INEXACT) == 0);
+            for (size_t j = 0; j < size; ++j)
+            {
+                const value_type ref = std_fn(input[i * size + j]);
+                INFO(name, ": lane ", i * size + j);
+                CHECK(rounding_fenv_detail::same_bits(ref, out[j]));
+            }
+        }
+    }
+
+    void test_rounding_functions()
+    {
+        check_flag_free("ceil", [](batch_type x)
+                        { return ceil(x); }, [](value_type v)
+                        { return std::ceil(v); });
+        check_flag_free("floor", [](batch_type x)
+                        { return floor(x); }, [](value_type v)
+                        { return std::floor(v); });
+        check_flag_free("trunc", [](batch_type x)
+                        { return trunc(x); }, [](value_type v)
+                        { return std::trunc(v); });
+        check_flag_free("round", [](batch_type x)
+                        { return round(x); }, [](value_type v)
+                        { return std::round(v); });
+        check_flag_free("nearbyint", [](batch_type x)
+                        { return nearbyint(x); }, [](value_type v)
+                        { return std::nearbyint(v); });
+        // 7.12.9.6: rint may raise inexact and must keep doing so when the result differs
+        {
+            alignas(B::alignment()) value_type in[size], out[size];
+            std::copy(input.begin(), input.begin() + size, in);
+            std::feclearexcept(FE_ALL_EXCEPT);
+            rounding_fenv_detail::barrier();
+            rint(batch_type::load_aligned(in)).store_aligned(out);
+            rounding_fenv_detail::barrier();
+            INFO("rint: FE_INEXACT must be raised for non-integer input");
+            CHECK((std::fetestexcept(FE_ALL_EXCEPT) & FE_INEXACT) != 0);
+            for (size_t j = 0; j < size; ++j)
+            {
+                INFO("rint: lane ", j);
+                CHECK(rounding_fenv_detail::same_bits(std::rint(input[j]), out[j]));
+            }
+            std::feclearexcept(FE_ALL_EXCEPT);
+        }
+    }
+};
+
+TEST_CASE_TEMPLATE("[rounding] fp exception flags", B, BATCH_FLOAT_TYPES)
+{
+    rounding_fenv_test<B> Test;
+    Test.test_rounding_functions();
+}
+#endif
 #endif

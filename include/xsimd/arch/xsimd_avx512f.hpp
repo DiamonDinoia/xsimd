@@ -905,12 +905,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> ceil(batch<float, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_ps(self, _MM_FROUND_TO_POS_INF);
+            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_POS_INF, _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> ceil(batch<double, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_pd(self, _MM_FROUND_TO_POS_INF);
+            return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_POS_INF, _MM_FROUND_NO_EXC);
         }
 
         // compress
@@ -1094,12 +1094,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> floor(batch<float, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_ps(self, _MM_FROUND_TO_NEG_INF);
+            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_NEG_INF, _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> floor(batch<double, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_pd(self, _MM_FROUND_TO_NEG_INF);
+            return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_NEG_INF, _MM_FROUND_NO_EXC);
         }
 
         // fnma
@@ -1868,10 +1868,23 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> nearbyint(batch<float, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_NEAREST_INT, _MM_FROUND_CUR_DIRECTION);
+            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_NEAREST_INT, _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> nearbyint(batch<double, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_NEAREST_INT, _MM_FROUND_NO_EXC);
+        }
+
+        // rint
+        template <class A>
+        XSIMD_INLINE batch<float, A> rint(batch<float, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            // unlike nearbyint, rint keeps raising inexact when the result differs
+            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_NEAREST_INT, _MM_FROUND_CUR_DIRECTION);
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> rint(batch<double, A> const& self, requires_arch<avx512f>) noexcept
         {
             return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_NEAREST_INT, _MM_FROUND_CUR_DIRECTION);
         }
@@ -2901,13 +2914,13 @@ namespace xsimd
         XSIMD_INLINE batch<float, A>
         trunc(batch<float, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_ZERO, _MM_FROUND_CUR_DIRECTION);
+            return _mm512_roundscale_round_ps(self, _MM_FROUND_TO_ZERO, _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A>
         trunc(batch<double, A> const& self, requires_arch<avx512f>) noexcept
         {
-            return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_ZERO, _MM_FROUND_CUR_DIRECTION);
+            return _mm512_roundscale_round_pd(self, _MM_FROUND_TO_ZERO, _MM_FROUND_NO_EXC);
         }
 
         // zip_hi
