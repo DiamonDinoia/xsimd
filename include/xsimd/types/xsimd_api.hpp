@@ -958,6 +958,9 @@ namespace xsimd
      * @ingroup batch_arithmetic
      *
      * Computes <tt>(x*y) + z</tt> in a single instruction when possible.
+     * On architectures without a hardware fused multiply-add, the result is
+     * computed as a separate multiply and add, so it is rounded twice and can
+     * differ from <tt>std::fma</tt> by one ulp.
      * @param x a batch of integer or floating point values.
      * @param y a batch of integer or floating point values.
      * @param z a batch of integer or floating point values.
@@ -1019,6 +1022,9 @@ namespace xsimd
      * @ingroup batch_arithmetic
      *
      * Computes <tt>(x*y) - z</tt> in a single instruction when possible.
+     * On architectures without a hardware fused multiply-add, the result is
+     * computed as a separate multiply and add, so it is rounded twice and can
+     * differ from <tt>std::fma</tt> by one ulp.
      * @param x a batch of integer or floating point values.
      * @param y a batch of integer or floating point values.
      * @param z a batch of integer or floating point values.
@@ -1035,6 +1041,9 @@ namespace xsimd
      * @ingroup batch_arithmetic
      *
      * Computes <tt>-(x*y) + z</tt> in a single instruction when possible.
+     * On architectures without a hardware fused multiply-add, the result is
+     * computed as a separate multiply and add, so it is rounded twice and can
+     * differ from <tt>std::fma</tt> by one ulp.
      * @param x a batch of integer or floating point values.
      * @param y a batch of integer or floating point values.
      * @param z a batch of integer or floating point values.
@@ -1051,6 +1060,9 @@ namespace xsimd
      * @ingroup batch_arithmetic
      *
      * Computes <tt>-(x*y) - z</tt> in a single instruction when possible.
+     * On architectures without a hardware fused multiply-add, the result is
+     * computed as a separate multiply and add, so it is rounded twice and can
+     * differ from <tt>std::fma</tt> by one ulp.
      * @param x a batch of integer or floating point values.
      * @param y a batch of integer or floating point values.
      * @param z a batch of integer or floating point values.
@@ -1067,6 +1079,9 @@ namespace xsimd
      * @ingroup batch_arithmetic
      *
      * Computes <tt>-(x*y) - z</tt> in a single instruction when possible.
+     * On architectures without a hardware fused multiply-add, the result is
+     * computed as a separate multiply and add, so it is rounded twice and can
+     * differ from <tt>std::fma</tt> by one ulp.
      * @param x a batch of integer or floating point values.
      * @param y a batch of integer or floating point values.
      * @param z a batch of integer or floating point values.

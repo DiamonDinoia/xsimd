@@ -89,6 +89,12 @@ Fused operations:
 | :cpp:func:`fnms`                      | fused negate multiply sub                          |
 +---------------------------------------+----------------------------------------------------+
 
+.. note::
+
+    On architectures without a hardware fused multiply-add, these functions
+    compute a separate multiply and add, so the result is rounded twice and
+    can differ from ``std::fma`` by one ulp.
+
 Average computation:
 
 +---------------------------------------+----------------------------------------------------+
