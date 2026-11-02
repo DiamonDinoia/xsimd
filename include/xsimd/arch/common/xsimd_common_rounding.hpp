@@ -26,22 +26,46 @@ namespace xsimd
         template <class A, class T>
         XSIMD_INLINE batch<T, A> ceil(batch<T, A> const& self, requires_arch<common>) noexcept
         {
+            // ceil must not raise (C17 7.12.9.1): the compiler may speculate the +1
+            // onto lanes where it rounds (2^digits + 1), so clear any inexactness the
+            // formula does not semantically raise, like truncf_impl does for its adds.
+#if defined(FE_INEXACT)
+            const int raised = std::fetestexcept(FE_INEXACT);
+#endif
             batch<T, A> truncated_self = trunc(self);
             auto need = truncated_self < self;
-            // the +1 must never see a lane where it rounds; those lanes never need it
             batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
-            return select(need, adjusted + 1, truncated_self);
+            batch<T, A> r = select(need, adjusted + 1, truncated_self);
+#if defined(FE_INEXACT)
+            detail::fenv_fence(r);
+            if (!(raised & FE_INEXACT) && std::fetestexcept(FE_INEXACT))
+            {
+                std::feclearexcept(FE_INEXACT);
+            }
+#endif
+            return r;
         }
 
         // floor
         template <class A, class T>
         XSIMD_INLINE batch<T, A> floor(batch<T, A> const& self, requires_arch<common>) noexcept
         {
+            // floor must not raise; same dance and reason as ceil
+#if defined(FE_INEXACT)
+            const int raised = std::fetestexcept(FE_INEXACT);
+#endif
             batch<T, A> truncated_self = trunc(self);
             auto need = truncated_self > self;
-            // the -1 must never see a lane where it rounds; those lanes never need it
             batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
-            return select(need, adjusted - 1, truncated_self);
+            batch<T, A> r = select(need, adjusted - 1, truncated_self);
+#if defined(FE_INEXACT)
+            detail::fenv_fence(r);
+            if (!(raised & FE_INEXACT) && std::fetestexcept(FE_INEXACT))
+            {
+                std::feclearexcept(FE_INEXACT);
+            }
+#endif
+            return r;
         }
 
         // round
