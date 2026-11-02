@@ -19,7 +19,8 @@ int main(int argc, char** argv)
 {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     doctest::Context context;
-    return context.run(argc, argv);
+    context.applyCommandLine(argc, argv);
+    return context.run();
 }
 #else
 
