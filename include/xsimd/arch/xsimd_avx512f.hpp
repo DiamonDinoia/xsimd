@@ -1968,6 +1968,33 @@ namespace xsimd
             batch<T, avx2> low(detail::lower_half(self)), high(detail::upper_half(self));
             return reduce_max(max(low, high));
         }
+        // Same reduction tree as the generic fold, written with explicit
+        // shuffles so that LLVM 23 cannot fold it wrongly. The lane pairing
+        // and the operand order of each step match: x86 max and min give the
+        // second operand on a NaN or an equal-zero pair, and the generic
+        // fold passes the swizzled half as that second operand.
+        template <class A>
+        XSIMD_INLINE float reduce_max(batch<float, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            __m512 split = _mm512_shuffle_f32x4(self, self, 0xEE);
+            __m512 res = _mm512_max_ps(self, split);
+            split = _mm512_shuffle_f32x4(res, res, 0x55);
+            res = _mm512_max_ps(res, split);
+            split = _mm512_shuffle_ps(res, res, 0xEE);
+            res = _mm512_max_ps(res, split);
+            split = _mm512_movehdup_ps(res);
+            return _mm512_cvtss_f32(_mm512_max_ps(res, split));
+        }
+        template <class A>
+        XSIMD_INLINE double reduce_max(batch<double, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            __m512d split = _mm512_shuffle_f64x2(self, self, 0xEE);
+            __m512d res = _mm512_max_pd(self, split);
+            split = _mm512_shuffle_f64x2(res, res, 0x55);
+            res = _mm512_max_pd(res, split);
+            split = _mm512_unpackhi_pd(res, res);
+            return _mm512_cvtsd_f64(_mm512_max_pd(res, split));
+        }
 
         // reduce_min
         template <class A, class T, class = std::enable_if_t<(sizeof(T) <= 2)>>
@@ -1975,6 +2002,28 @@ namespace xsimd
         {
             batch<T, avx2> low(detail::lower_half(self)), high(detail::upper_half(self));
             return reduce_min(min(low, high));
+        }
+        template <class A>
+        XSIMD_INLINE float reduce_min(batch<float, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            __m512 split = _mm512_shuffle_f32x4(self, self, 0xEE);
+            __m512 res = _mm512_min_ps(self, split);
+            split = _mm512_shuffle_f32x4(res, res, 0x55);
+            res = _mm512_min_ps(res, split);
+            split = _mm512_shuffle_ps(res, res, 0xEE);
+            res = _mm512_min_ps(res, split);
+            split = _mm512_movehdup_ps(res);
+            return _mm512_cvtss_f32(_mm512_min_ps(res, split));
+        }
+        template <class A>
+        XSIMD_INLINE double reduce_min(batch<double, A> const& self, requires_arch<avx512f>) noexcept
+        {
+            __m512d split = _mm512_shuffle_f64x2(self, self, 0xEE);
+            __m512d res = _mm512_min_pd(self, split);
+            split = _mm512_shuffle_f64x2(res, res, 0x55);
+            res = _mm512_min_pd(res, split);
+            split = _mm512_unpackhi_pd(res, res);
+            return _mm512_cvtsd_f64(_mm512_min_pd(res, split));
         }
 
         // reduce_mul
