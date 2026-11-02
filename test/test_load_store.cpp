@@ -715,9 +715,9 @@ TEST_CASE_TEMPLATE("gather widens 32-bit sources into 64-bit lanes", B, BATCH_IN
         using A = typename B::arch_type;
         using I = xsimd::batch<int64_t, A>;
         constexpr std::size_t N = B::size;
-        std::array<uint32_t, N> u32 {};
-        std::array<int32_t, N> i32 {};
-        std::array<int64_t, N> idx {};
+        std::array<uint32_t, N> u32 { };
+        std::array<int32_t, N> i32 { };
+        std::array<int64_t, N> idx { };
         for (std::size_t i = 0; i < N; ++i)
         {
             u32[i] = 0xFFFFFFF0u + uint32_t(i); // top bit set: zero-extension must win
@@ -725,7 +725,7 @@ TEST_CASE_TEMPLATE("gather widens 32-bit sources into 64-bit lanes", B, BATCH_IN
             idx[i] = int64_t(N - 1 - i);
         }
         const I index = I::load_unaligned(idx.data());
-        std::array<T, N> exp_u {}, exp_i {}, got_u {}, got_i {};
+        std::array<T, N> exp_u { }, exp_i { }, got_u { }, got_i { };
         for (std::size_t i = 0; i < N; ++i)
         {
             exp_u[i] = static_cast<T>(u32[idx[i]]);

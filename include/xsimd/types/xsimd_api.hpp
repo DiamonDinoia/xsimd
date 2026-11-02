@@ -2195,7 +2195,7 @@ namespace xsimd
     XSIMD_INLINE batch<T, A> rint(batch<T, A> const& x) noexcept
     {
         detail::static_check_supported_config<T, A>();
-        return kernel::rint<A>(x, A {});
+        return kernel::rint<A>(x, A { });
     }
 
     /**
