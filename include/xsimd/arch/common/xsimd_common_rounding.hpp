@@ -28,9 +28,10 @@ namespace xsimd
         {
             batch<T, A> truncated_self = trunc(self);
             auto need = truncated_self < self;
-            // the +1 must never see a lane where it rounds; those lanes never need it
-            batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
-            return select(need, adjusted + 1, truncated_self);
+            batch<T, A> step = bitwise_and(bitwise_cast<T>(need), batch<T, A>(1));
+            // the fence keeps the compiler from blending +1 onto every lane, where 2^digits + 1 rounds and raises
+            detail::fenv_fence(step);
+            return select(need, truncated_self + step, truncated_self);
         }
 
         // floor
@@ -39,9 +40,10 @@ namespace xsimd
         {
             batch<T, A> truncated_self = trunc(self);
             auto need = truncated_self > self;
-            // the -1 must never see a lane where it rounds; those lanes never need it
-            batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
-            return select(need, adjusted - 1, truncated_self);
+            batch<T, A> step = bitwise_and(bitwise_cast<T>(need), batch<T, A>(1));
+            // the fence keeps the compiler from blending -1 onto every lane, where -2^digits - 1 rounds and raises
+            detail::fenv_fence(step);
+            return select(need, truncated_self - step, truncated_self);
         }
 
         // round
