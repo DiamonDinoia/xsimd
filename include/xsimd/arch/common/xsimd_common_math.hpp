@@ -16,6 +16,7 @@
 #include "./xsimd_common_details.hpp"
 #include "./xsimd_common_trigo.hpp"
 
+#include <cfenv>
 #include <type_traits>
 
 namespace xsimd
@@ -1915,12 +1916,36 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> nearbyint(batch<float, A> const& self, requires_arch<common>) noexcept
         {
+#if defined(FE_INEXACT)
+            // 7.12.9.5: nearbyint never raises inexact; drop the flag the rounding raised
+            const int raised = std::fetestexcept(FE_INEXACT);
+            batch<float, A> r = detail::nearbyintf(self);
+            detail::fenv_fence(r);
+            if (!(raised & FE_INEXACT) && std::fetestexcept(FE_INEXACT))
+            {
+                std::feclearexcept(FE_INEXACT);
+            }
+            return r;
+#else
             return detail::nearbyintf(self);
+#endif
         }
         template <class A>
         XSIMD_INLINE batch<double, A> nearbyint(batch<double, A> const& self, requires_arch<common>) noexcept
         {
+#if defined(FE_INEXACT)
+            // 7.12.9.5: nearbyint never raises inexact; drop the flag the rounding raised
+            const int raised = std::fetestexcept(FE_INEXACT);
+            batch<double, A> r = detail::nearbyintf(self);
+            detail::fenv_fence(r);
+            if (!(raised & FE_INEXACT) && std::fetestexcept(FE_INEXACT))
+            {
+                std::feclearexcept(FE_INEXACT);
+            }
+            return r;
+#else
             return detail::nearbyintf(self);
+#endif
         }
 
         // nearbyint_as_int
@@ -1949,6 +1974,24 @@ namespace xsimd
             return kernel::detail::apply_transform<U>([](double x) noexcept -> U
                                                       { return std::nearbyint(x); },
                                                       self);
+        }
+
+        // rint
+        template <class T, class A, class = std::enable_if_t<std::is_integral_v<T>>>
+        XSIMD_INLINE batch<T, A> rint(batch<T, A> const& self, requires_arch<common>) noexcept
+        {
+            return self;
+        }
+        template <class A>
+        XSIMD_INLINE batch<float, A> rint(batch<float, A> const& self, requires_arch<common>) noexcept
+        {
+            // unlike nearbyint, rint keeps raising inexact when the result differs
+            return detail::nearbyintf(self);
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> rint(batch<double, A> const& self, requires_arch<common>) noexcept
+        {
+            return detail::nearbyintf(self);
         }
 
         // nextafter

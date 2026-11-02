@@ -1178,12 +1178,8 @@ namespace xsimd
             return !(arg == arg);
         }
 
-        // nearbyint
-        template <class A, class T, detail::enable_floating_point_t<T> = 0>
-        XSIMD_INLINE batch<T, A> nearbyint(batch<T, A> const& arg, requires_arch<sve>) noexcept
-        {
-            return svrintx_x(detail_sve::ptrue<T>(), arg);
-        }
+        // nearbyint: the svrintx kernel raised FE_INEXACT; the flag-free common
+        // implementation keeps the same current-direction values.
 
         // nearbyint_as_int
         template <class A>

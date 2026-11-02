@@ -33,12 +33,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> ceil(batch<float, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_ceil_ps(self);
+            return _mm_round_ps(self, _MM_FROUND_CEIL | _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> ceil(batch<double, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_ceil_pd(self);
+            return _mm_round_pd(self, _MM_FROUND_CEIL | _MM_FROUND_NO_EXC);
         }
 
         // bitwise_lshift multiple (constant)
@@ -97,12 +97,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> floor(batch<float, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_floor_ps(self);
+            return _mm_round_ps(self, _MM_FROUND_FLOOR | _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> floor(batch<double, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_floor_pd(self);
+            return _mm_round_pd(self, _MM_FROUND_FLOOR | _MM_FROUND_NO_EXC);
         }
 
         // get
@@ -408,10 +408,23 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> nearbyint(batch<float, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_round_ps(self, _MM_FROUND_TO_NEAREST_INT);
+            return _mm_round_ps(self, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> nearbyint(batch<double, A> const& self, requires_arch<sse4_1>) noexcept
+        {
+            return _mm_round_pd(self, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+        }
+
+        // rint
+        template <class A>
+        XSIMD_INLINE batch<float, A> rint(batch<float, A> const& self, requires_arch<sse4_1>) noexcept
+        {
+            // unlike nearbyint, rint keeps raising inexact when the result differs
+            return _mm_round_ps(self, _MM_FROUND_TO_NEAREST_INT);
+        }
+        template <class A>
+        XSIMD_INLINE batch<double, A> rint(batch<double, A> const& self, requires_arch<sse4_1>) noexcept
         {
             return _mm_round_pd(self, _MM_FROUND_TO_NEAREST_INT);
         }
@@ -483,12 +496,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> trunc(batch<float, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_round_ps(self, _MM_FROUND_TO_ZERO);
+            return _mm_round_ps(self, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> trunc(batch<double, A> const& self, requires_arch<sse4_1>) noexcept
         {
-            return _mm_round_pd(self, _MM_FROUND_TO_ZERO);
+            return _mm_round_pd(self, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
         }
 
         // widen

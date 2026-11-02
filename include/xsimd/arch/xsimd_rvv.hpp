@@ -1479,23 +1479,9 @@ namespace xsimd
             return detail_rvv::rvvfcvt_default(arg);
         }
 
-        // round
-        template <class A, class T, detail::enable_floating_point_t<T> = 0>
-        XSIMD_INLINE batch<T, A> round(batch<T, A> const& arg, requires_arch<rvv>) noexcept
-        {
-            // Round ties away from zero.
-            const auto mask = abs(arg) < constants::maxflint<batch<T, A>>();
-            return select(mask, to_float(detail_rvv::rvvfcvt_afz(arg)), arg, rvv {});
-        }
-
-        // nearbyint
-        template <class A, class T, detail::enable_floating_point_t<T> = 0>
-        XSIMD_INLINE batch<T, A> nearbyint(batch<T, A> const& arg, requires_arch<rvv>) noexcept
-        {
-            // Round according to current rounding mode.
-            const auto mask = abs(arg) < constants::maxflint<batch<T, A>>();
-            return select(mask, to_float(detail_rvv::rvvfcvt_default(arg)), arg, rvv {});
-        }
+        // round and nearbyint used fp<->int conversions, which raise FE_INEXACT;
+        // the flag-free common implementations keep the same values (ties away
+        // for round, current direction for nearbyint).
 
         // mask
         template <class A, class T>

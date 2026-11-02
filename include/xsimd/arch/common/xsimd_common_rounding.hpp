@@ -27,7 +27,10 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> ceil(batch<T, A> const& self, requires_arch<common>) noexcept
         {
             batch<T, A> truncated_self = trunc(self);
-            return select(truncated_self < self, truncated_self + 1, truncated_self);
+            auto need = truncated_self < self;
+            // the +1 must never see a lane where it rounds; those lanes never need it
+            batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
+            return select(need, adjusted + 1, truncated_self);
         }
 
         // floor
@@ -35,17 +38,24 @@ namespace xsimd
         XSIMD_INLINE batch<T, A> floor(batch<T, A> const& self, requires_arch<common>) noexcept
         {
             batch<T, A> truncated_self = trunc(self);
-            return select(truncated_self > self, truncated_self - 1, truncated_self);
+            auto need = truncated_self > self;
+            // the -1 must never see a lane where it rounds; those lanes never need it
+            batch<T, A> adjusted = select(need, truncated_self, batch<T, A>(0));
+            return select(need, adjusted - 1, truncated_self);
         }
 
         // round
         template <class A, class T>
         XSIMD_INLINE batch<T, A> round(batch<T, A> const& self, requires_arch<common>) noexcept
         {
+            // Ties away from zero. c - 0.5 and c - 1 round on huge lanes, so those
+            // lanes go through as zero and are put back by the last select.
             auto v = abs(self);
-            auto c = ceil(v);
-            auto cp = select(c - 0.5 > v, c - 1, c);
-            return select(v > constants::maxflint<batch<T, A>>(), self, copysign(cp, self));
+            auto big = !(v < constants::twotonmb<batch<T, A>>()); // also catches nan
+            auto vs = select(big, batch<T, A>(0), v);
+            auto c = ceil(vs);
+            auto cp = select(c - 0.5 > vs, c - 1, c);
+            return select(big, self, copysign(cp, self));
         }
 
         // trunc
@@ -57,12 +67,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<float, A> trunc(batch<float, A> const& self, requires_arch<common>) noexcept
         {
-            return select(abs(self) < constants::maxflint<batch<float, A>>(), to_float(to_int(self)), self);
+            return detail::truncf_impl(self);
         }
         template <class A>
         XSIMD_INLINE batch<double, A> trunc(batch<double, A> const& self, requires_arch<common>) noexcept
         {
-            return select(abs(self) < constants::maxflint<batch<double, A>>(), to_float(to_int(self)), self);
+            return detail::truncf_impl(self);
         }
 
     }
