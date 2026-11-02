@@ -313,7 +313,9 @@ namespace xsimd
             {
                 const batch<double, A> two52(4503599627370496.0);
                 const batch<double, A> ax = abs(x);
-                const batch<double, A> r = (ax + two52) - two52;
+                batch<double, A> s = ax + two52;
+                detail::reassociation_barrier(s, "keep ax + 2^52 apart from the 2^52 subtract");
+                const batch<double, A> r = s - two52;
                 return copysign(select(r > ax, r - batch<double, A>(1.0), r), x);
             }
             template <class A>
