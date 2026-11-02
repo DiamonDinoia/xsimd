@@ -9,8 +9,18 @@
  * The full license is in the file LICENSE, distributed with this software. *
  ****************************************************************************/
 #ifndef EMSCRIPTEN
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+
+#define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
+#include <cstdio>
+
+// unbuffered stdout: if a run dies, the log ends at the last test that ran
+int main(int argc, char** argv)
+{
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    doctest::Context context;
+    return context.run(argc, argv);
+}
 #else
 
 #define DOCTEST_CONFIG_IMPLEMENT
