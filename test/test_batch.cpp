@@ -226,7 +226,7 @@ struct batch_test
     {
         batch_type res = batch_lhs();
         CHECK_EQ(xsimd::get<0>(res), res.first());
-        test_get_impl(res, std::make_index_sequence<size> {});
+        test_get_impl(res, std::make_index_sequence<size> { });
     }
 
     void test_arithmetic() const
@@ -525,7 +525,7 @@ struct batch_test
 
     void test_mulhilo() const
     {
-        test_mulhilo_impl(typename std::is_integral<value_type>::type {});
+        test_mulhilo_impl(typename std::is_integral<value_type>::type { });
     }
 
     void test_saturated_arithmetic() const
@@ -1306,5 +1306,53 @@ TEST_CASE_TEMPLATE("[batch]", B, BATCH_TYPES)
     {
         Test.test_boolean_conversions();
     }
+}
+
+// fused ops must match std::fma on the sign of exact zeros and on operand order
+TEST_CASE_TEMPLATE("[batch][fused_sign]", B, BATCH_FLOAT_TYPES)
+{
+    using value_type = typename B::value_type;
+
+    auto check = [](value_type x, value_type y, value_type z)
+    {
+        INFO("fused sign: x=" << x << " y=" << y << " z=" << z);
+        const B bx(x), by(y), bz(z);
+        struct check_t
+        {
+            const char* name;
+            value_type got, expected;
+        };
+        const check_t cases[] = {
+            { "fma", xsimd::fma(bx, by, bz).get(0), std::fma(x, y, z) },
+            { "fms", xsimd::fms(bx, by, bz).get(0), std::fma(x, y, -z) },
+            { "fnma", xsimd::fnma(bx, by, bz).get(0), std::fma(-x, y, z) },
+            { "fnms", xsimd::fnms(bx, by, bz).get(0), std::fma(-x, y, -z) },
+        };
+        for (const auto& c : cases)
+        {
+            INFO(c.name);
+            CHECK_EQ(c.got, c.expected);
+#ifndef __FAST_MATH__
+            // fast math drops signed zeros and folds signbit to a sign compare
+            CHECK_EQ(std::signbit(c.got), std::signbit(c.expected));
+#endif
+        }
+    };
+
+    const value_type zero(0), one(1);
+    // exact cancellation: the sign of the zero result must match std::fma
+    check(one, one, one);
+    check(one, one, -one);
+    check(-one, one, -one);
+    check(zero, one, zero);
+    check(-zero, one, zero);
+    check(zero, one, -zero);
+    check(-zero, one, -zero);
+    // x*z+y differs from x*y+z, so a swapped operand gives a wrong value
+    check(value_type(2), value_type(3), value_type(4));
+    check(value_type(3), value_type(-2), value_type(5));
+    check(value_type(-2), value_type(3), value_type(-4));
+    check(value_type(5), value_type(2), value_type(3));
+    check(value_type(0.5), value_type(3), value_type(2));
 }
 #endif
