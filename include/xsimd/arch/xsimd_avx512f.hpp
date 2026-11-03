@@ -2309,7 +2309,9 @@ namespace xsimd
             if ((I4 == I0 + 4) && (I5 == I1 + 4) && (I6 == I2 + 4) && (I7 == I3 + 4) && (I8 == I0 + 8) && (I9 == I1 + 8) && (I10 == I2 + 8) && (I11 == I3 + 8) && (I12 == I0 + 12) && (I13 == I1 + 12) && (I14 == I2 + 12) && (I15 == I3 + 12) && I2 < 4 && I3 < 4 && I0 >= 16 && I0 < 20 && I1 >= 16 && I1 < 20)
                 return _mm512_shuffle_ps(y, x, smask);
 
-            return shuffle(x, y, mask, common {});
+            (void)mask;
+            // general pattern: one vpermt2ps; index bit 4 picks the table (AVX512F only)
+            return _mm512_permutex2var_ps(x, _mm512_set_epi32(I15, I14, I13, I12, I11, I10, I9, I8, I7, I6, I5, I4, I3, I2, I1, I0), y);
         }
 
         template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3, ITy I4, ITy I5, ITy I6, ITy I7>
@@ -2324,7 +2326,9 @@ namespace xsimd
             if (I1 < 2 && I0 >= 8 && I0 < 10 && I3 >= 2 && I3 < 4 && I2 >= 10 && I2 < 12 && I5 >= 4 && I5 < 6 && I4 >= 12 && I4 < 14 && I7 >= 6 && I7 < 8 && I6 >= 14)
                 return _mm512_shuffle_pd(y, x, smask);
 
-            return shuffle(x, y, mask, common {});
+            (void)mask;
+            // general pattern: one vpermt2pd; index bit 3 picks the table (AVX512F only)
+            return _mm512_permutex2var_pd(x, _mm512_set_epi64(I7, I6, I5, I4, I3, I2, I1, I0), y);
         }
 
         // slide_left
