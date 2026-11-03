@@ -669,7 +669,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog<B>();
+                    return constants::maxlogovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -683,7 +683,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog10<B>();
+                    return constants::maxlog10ovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -697,7 +697,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog2<B>();
+                    return constants::maxlog2ovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -1156,9 +1156,34 @@ namespace xsimd
         {
             using batch_type = batch<T, A>;
             using itype = as_integer_t<batch_type>;
+            // 2^k is not representable for k = maxexponent + 1: the exponent field then encodes +inf.
+            // The guard is an integer compare and the fix doubles the product, so -ffast-math cannot
+            // fold the two steps back into one multiply by +inf. Both factors are exact powers of two,
+            // so the result rounds once.
+            // shortcut: k > maxexponent + 1 gives a garbage pattern again; clamp such inputs in the
+            // caller (exp/exp2/exp10 do), upgrade here when a caller needs them
             itype ik = other + constants::maxexponent<T>();
             ik = ik << constants::nmb<T>();
-            return self * ::xsimd::bitwise_cast<T>(ik);
+            // +inf pattern from integer bits: a float inf constant is undefined under __FAST_MATH__
+            itype inf_pat;
+            if constexpr (sizeof(T) == 4)
+            {
+                inf_pat = itype(0x7f800000);
+            }
+            else
+            {
+                inf_pat = itype(0x7ff0000000000000LL);
+            }
+            auto over = ik == inf_pat;
+            if (!any(over))
+            {
+                return self * ::xsimd::bitwise_cast<T>(ik);
+            }
+            itype ikf = select(batch_bool_cast<as_integer_t<T>>(over), ik - (itype(1) << constants::nmb<T>()), ik);
+            batch_type r = self * ::xsimd::bitwise_cast<T>(ikf);
+            // stop -ffast-math from folding r + r back into the one multiply by +inf
+            detail::reassociation_barrier(r, "ldexp overflow-bound scaling keeps one rounding");
+            return select(batch_bool_cast<T>(over), r + r, r);
         }
 
         // lgamma

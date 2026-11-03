@@ -82,6 +82,10 @@ namespace xsimd
         XSIMD_DEFINE_CONSTANT(maxlog, 88.3762626647949f, 709.78271289338400)
         XSIMD_DEFINE_CONSTANT(maxlog2, 127.0f, 1023.)
         XSIMD_DEFINE_CONSTANT(maxlog10, 38.23080825805664f, 308.2547155599167)
+        // overflow bounds: smallest x whose exp/exp2/exp10 rounds to +inf, not log of the max finite
+        XSIMD_DEFINE_CONSTANT_HEX(maxlogovf, 0x42b17218, 0x40862e42fefa39f0)
+        XSIMD_DEFINE_CONSTANT_HEX(maxlog2ovf, 0x43000000, 0x4090000000000000)
+        XSIMD_DEFINE_CONSTANT_HEX(maxlog10ovf, 0x421a209b, 0x40734413509f79ff)
         XSIMD_DEFINE_CONSTANT_HEX(mediumpi, 0x43490fdb, 0x412921fb54442d18)
         XSIMD_DEFINE_CONSTANT(minlog, -88.3762626647949f, -708.3964185322641)
         XSIMD_DEFINE_CONSTANT(minlog2, -127.0f, -1023.)
