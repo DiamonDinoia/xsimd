@@ -1603,6 +1603,25 @@ namespace xsimd
             return _mm256_castsi256_pd(set(batch<int64_t, A>(), A {}, static_cast<int64_t>(values ? -1LL : 0LL)...).data);
         }
 
+        // narrow_cast
+        template <class A, class B_out, class = std::enable_if_t<std::is_same_v<typename B_out::value_type, std::int32_t> || std::is_same_v<typename B_out::value_type, float>>>
+        XSIMD_INLINE B_out narrow_cast(batch<double, A> const& self, B_out const&, requires_arch<avx>) noexcept
+        {
+            if constexpr (std::is_same_v<typename B_out::value_type, std::int32_t>)
+                return B_out(_mm256_cvttpd_epi32(self));
+            else
+                return B_out(_mm256_cvtpd_ps(self));
+        }
+
+        template <class A, class T_out, class = std::enable_if_t<std::is_same_v<T_out, std::int32_t> || std::is_same_v<T_out, float>>>
+        XSIMD_INLINE batch<T_out, A> narrow_cast(batch<double, A> const& lo, batch<double, A> const& hi, batch<T_out, A> const&, requires_arch<avx>) noexcept
+        {
+            if constexpr (std::is_same_v<T_out, std::int32_t>)
+                return batch<T_out, A>(_mm256_insertf128_si256(_mm256_castsi128_si256(_mm256_cvttpd_epi32(lo)), _mm256_cvttpd_epi32(hi), 1));
+            else
+                return batch<T_out, A>(_mm256_insertf128_ps(_mm256_castps128_ps256(_mm256_cvtpd_ps(lo)), _mm256_cvtpd_ps(hi), 1));
+        }
+
         // shuffle
         template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3, ITy I4, ITy I5, ITy I6, ITy I7>
         XSIMD_INLINE batch<float, A> shuffle(batch<float, A> const& x, batch<float, A> const& y, batch_constant<ITy, A, I0, I1, I2, I3, I4, I5, I6, I7> mask, requires_arch<avx>) noexcept

@@ -263,7 +263,7 @@ namespace xsimd
     {
         detail::static_check_supported_config<T_out, A>();
         detail::static_check_supported_config<T_in, A>();
-        return kernel::batch_cast<A>(x, batch<T_out, A> {}, A {});
+        return kernel::batch_cast<A>(x, batch<T_out, A> { }, A { });
     }
 
     /**
@@ -352,7 +352,7 @@ namespace xsimd
     {
         detail::static_check_supported_config<T_in, A>();
         detail::static_check_supported_config<T_out, A>();
-        return kernel::bitwise_cast<A>(x, batch<T_out, A> {}, A {});
+        return kernel::bitwise_cast<A>(x, batch<T_out, A> { }, A { });
     }
 
     namespace detail
@@ -3202,6 +3202,45 @@ namespace xsimd
     {
         detail::static_check_supported_config<T, A>();
         return kernel::widen<A>(x, A {});
+    }
+
+    /**
+     * @ingroup batch_conversion
+     *
+     * Narrow batch \c x to \c T_out with C++ cast semantics: truncation
+     * toward zero to an integer type, round to nearest to a floating-point
+     * type. The result holds as many elements as \c x in a register of
+     * \c sizeof(T_out) per element; for a half-size \c T_out this is the
+     * natural form of e.g. cvttpd or cvtpd2ps. The type exists only where
+     * make_sized_batch_t finds one.
+     * @param x batch of \c T_in
+     * @return a batch of \c T_out with the same element count
+     */
+    template <class T_out, class T_in, class A>
+    XSIMD_INLINE make_sized_batch_t<T_out, batch<T_in, A>::size> narrow_cast(batch<T_in, A> const& x) noexcept
+    {
+        detail::static_check_supported_config<T_in, A>();
+        using B_out = make_sized_batch_t<T_out, batch<T_in, A>::size>;
+        return kernel::narrow_cast<A>(x, B_out { }, A { });
+    }
+
+    /**
+     * @ingroup batch_conversion
+     *
+     * Narrow batches \c lo and \c hi into one batch of \c T_out holding the
+     * elements of \c lo then those of \c hi. Same cast semantics as the
+     * one-batch form. \c T_out must be half the size of \c T_in, so the
+     * element count doubles while the register width is preserved.
+     * @param lo batch of \c T_in, first half of the result
+     * @param hi batch of \c T_in, second half of the result
+     * @return one batch of \c T_out
+     */
+    template <class T_out, class T_in, class A>
+    XSIMD_INLINE batch<T_out, A> narrow_cast(batch<T_in, A> const& lo, batch<T_in, A> const& hi) noexcept
+    {
+        static_assert(sizeof(T_in) == 2 * sizeof(T_out), "narrow_cast of two batches halves the element size");
+        detail::static_check_supported_config<T_in, A>();
+        return kernel::narrow_cast<A>(lo, hi, batch<T_out, A> { }, A { });
     }
 
     /**
