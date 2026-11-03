@@ -117,6 +117,71 @@ struct exponential_test
         }
     }
 
+    void test_log_functions()
+    {
+        // log
+        {
+            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
+                           [](const value_type& v)
+                           { return std::log(v); });
+            for (size_t i = 0; i < nb_input; i += size)
+            {
+                batch_type in, out, ref;
+                detail::load_batch(in, log_input, i);
+                out = log(in);
+                detail::load_batch(ref, expected, i);
+                INFO("log");
+                CHECK_BATCH_EQ(ref, out);
+            }
+        }
+
+        // log2
+        {
+            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
+                           [](const value_type& v)
+                           { return std::log2(v); });
+            for (size_t i = 0; i < nb_input; i += size)
+            {
+                batch_type in, out, ref;
+                detail::load_batch(in, log_input, i);
+                out = log2(in);
+                detail::load_batch(ref, expected, i);
+                INFO("log2");
+                CHECK_BATCH_EQ(ref, out);
+            }
+        }
+
+        // log10
+        {
+            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
+                           [](const value_type& v)
+                           { return std::log10(v); });
+            for (size_t i = 0; i < nb_input; i += size)
+            {
+                batch_type in, out, ref;
+                detail::load_batch(in, log_input, i);
+                out = log10(in);
+                detail::load_batch(ref, expected, i);
+                INFO("log10");
+                CHECK_BATCH_EQ(ref, out);
+            }
+        }
+
+        // log1p
+        {
+            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
+                           [](const value_type& v)
+                           { return std::log1p(v); });
+            for (size_t i = 0; i < nb_input; i += size)
+            {
+                batch_type in, out, ref;
+                detail::load_batch(in, log_input, i);
+                out = log1p(in);
+                detail::load_batch(ref, expected, i);
+                CHECK_BATCH_EQ(ref, out);
+            }
+        }
+    }
     static std::int64_t bit_of(value_type v)
     {
         if constexpr (sizeof(value_type) == 4)
@@ -211,72 +276,6 @@ struct exponential_test
         check_overflow_rows("exp10", exp10_rows, 2, [](const batch_type& b)
                             { return exp10(b); });
     }
-
-    void test_log_functions()
-    {
-        // log
-        {
-            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
-                           [](const value_type& v)
-                           { return std::log(v); });
-            for (size_t i = 0; i < nb_input; i += size)
-            {
-                batch_type in, out, ref;
-                detail::load_batch(in, log_input, i);
-                out = log(in);
-                detail::load_batch(ref, expected, i);
-                INFO("log");
-                CHECK_BATCH_EQ(ref, out);
-            }
-        }
-
-        // log2
-        {
-            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
-                           [](const value_type& v)
-                           { return std::log2(v); });
-            for (size_t i = 0; i < nb_input; i += size)
-            {
-                batch_type in, out, ref;
-                detail::load_batch(in, log_input, i);
-                out = log2(in);
-                detail::load_batch(ref, expected, i);
-                INFO("log2");
-                CHECK_BATCH_EQ(ref, out);
-            }
-        }
-
-        // log10
-        {
-            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
-                           [](const value_type& v)
-                           { return std::log10(v); });
-            for (size_t i = 0; i < nb_input; i += size)
-            {
-                batch_type in, out, ref;
-                detail::load_batch(in, log_input, i);
-                out = log10(in);
-                detail::load_batch(ref, expected, i);
-                INFO("log10");
-                CHECK_BATCH_EQ(ref, out);
-            }
-        }
-
-        // log1p
-        {
-            std::transform(log_input.cbegin(), log_input.cend(), expected.begin(),
-                           [](const value_type& v)
-                           { return std::log1p(v); });
-            for (size_t i = 0; i < nb_input; i += size)
-            {
-                batch_type in, out, ref;
-                detail::load_batch(in, log_input, i);
-                out = log1p(in);
-                detail::load_batch(ref, expected, i);
-                CHECK_BATCH_EQ(ref, out);
-            }
-        }
-    }
 };
 
 TEST_CASE_TEMPLATE("[exponential]", B, BATCH_FLOAT_TYPES)
@@ -288,14 +287,14 @@ TEST_CASE_TEMPLATE("[exponential]", B, BATCH_FLOAT_TYPES)
         Test.test_exponential_functions();
     }
 
-    SUBCASE("exp overflow")
-    {
-        Test.test_exp_overflow();
-    }
-
     SUBCASE("log")
     {
         Test.test_log_functions();
+    }
+
+    SUBCASE("exp overflow")
+    {
+        Test.test_exp_overflow();
     }
 }
 #endif
