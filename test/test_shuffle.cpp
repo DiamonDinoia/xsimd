@@ -619,6 +619,45 @@ struct shuffle_test
         }
     }
 
+    void deinterleave()
+    {
+        B b_lhs = B::load_unaligned(lhs.data());
+        B b_rhs = B::load_unaligned(rhs.data());
+
+        struct even_columns_generator
+        {
+            static constexpr size_t get(size_t index, size_t /*size*/)
+            {
+                return 2 * index;
+            }
+        };
+
+        std::array<value_type, size> ref;
+        for (size_t i = 0; i < size; ++i)
+            ref[i] = (2 * i < size) ? lhs[2 * i] : rhs[2 * i - size];
+        B b_ref = B::load_unaligned(ref.data());
+
+        INFO("even columns");
+        B b_res = xsimd::shuffle(b_lhs, b_rhs, xsimd::make_batch_constant<mask_type, even_columns_generator, arch_type>());
+        CHECK_BATCH_EQ(b_res, b_ref);
+
+        struct odd_columns_generator
+        {
+            static constexpr size_t get(size_t index, size_t /*size*/)
+            {
+                return 2 * index + 1;
+            }
+        };
+
+        for (size_t i = 0; i < size; ++i)
+            ref[i] = (2 * i + 1 < size) ? lhs[2 * i + 1] : rhs[2 * i + 1 - size];
+        b_ref = B::load_unaligned(ref.data());
+
+        INFO("odd columns");
+        b_res = xsimd::shuffle(b_lhs, b_rhs, xsimd::make_batch_constant<mask_type, odd_columns_generator, arch_type>());
+        CHECK_BATCH_EQ(b_res, b_ref);
+    }
+
     void transpose()
     {
         B b_lhs = B::load_unaligned(lhs.data());
@@ -727,6 +766,10 @@ TEST_CASE_TEMPLATE("[shuffle]", B, XSIMD_SHUFFLE_TYPES)
     SUBCASE("common")
     {
         Test.common();
+    }
+    SUBCASE("deinterleave")
+    {
+        Test.deinterleave();
     }
     SUBCASE("pick")
     {

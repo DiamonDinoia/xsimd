@@ -1132,6 +1132,61 @@ namespace xsimd
             }
         }
 
+        // shuffle
+        template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3>
+        XSIMD_INLINE batch<double, A> shuffle(batch<double, A> const& x, batch<double, A> const& y,
+                                              batch_constant<ITy, A, I0, I1, I2, I3> const& mask,
+                                              requires_arch<avx2>) noexcept
+        {
+            constexpr uint32_t smask = (I0 & 0x1) | ((I1 & 0x1) << 1) | ((I2 & 0x1) << 2) | ((I3 & 0x1) << 3);
+            // shuffle within lane
+            if (I0 < 2 && I1 >= 4 && I1 < 6 && I2 >= 2 && I2 < 4 && I3 >= 6)
+                return _mm256_shuffle_pd(x, y, smask);
+
+            // shuffle within opposite lane
+            if (I1 < 2 && I0 >= 4 && I0 < 6 && I3 >= 2 && I3 < 4 && I2 >= 6)
+                return _mm256_shuffle_pd(y, x, smask);
+
+            (void)mask;
+            // general pattern: two 8x32 var permutes (paired indices keep each
+            // double intact) and a constant blend; the cross-lane form needs AVX2
+            return _mm256_blend_pd(
+                _mm256_castsi256_pd(_mm256_permutevar8x32_epi32(
+                    _mm256_castpd_si256(x),
+                    _mm256_set_epi32((I3 < 4) ? int(2 * I3 + 1) : 0, (I3 < 4) ? int(2 * I3) : 0,
+                                     (I2 < 4) ? int(2 * I2 + 1) : 0, (I2 < 4) ? int(2 * I2) : 0,
+                                     (I1 < 4) ? int(2 * I1 + 1) : 0, (I1 < 4) ? int(2 * I1) : 0,
+                                     (I0 < 4) ? int(2 * I0 + 1) : 0, (I0 < 4) ? int(2 * I0) : 0))),
+                _mm256_castsi256_pd(_mm256_permutevar8x32_epi32(
+                    _mm256_castpd_si256(y),
+                    _mm256_set_epi32((I3 >= 4) ? int(2 * (I3 - 4) + 1) : 0, (I3 >= 4) ? int(2 * (I3 - 4)) : 0,
+                                     (I2 >= 4) ? int(2 * (I2 - 4) + 1) : 0, (I2 >= 4) ? int(2 * (I2 - 4)) : 0,
+                                     (I1 >= 4) ? int(2 * (I1 - 4) + 1) : 0, (I1 >= 4) ? int(2 * (I1 - 4)) : 0,
+                                     (I0 >= 4) ? int(2 * (I0 - 4) + 1) : 0, (I0 >= 4) ? int(2 * (I0 - 4)) : 0))),
+                int((I0 >= 4) | ((I1 >= 4) << 1) | ((I2 >= 4) << 2) | ((I3 >= 4) << 3)));
+        }
+
+        template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3, ITy I4, ITy I5, ITy I6, ITy I7>
+        XSIMD_INLINE batch<float, A> shuffle(batch<float, A> const& x, batch<float, A> const& y,
+                                             batch_constant<ITy, A, I0, I1, I2, I3, I4, I5, I6, I7> const& mask,
+                                             requires_arch<avx2>) noexcept
+        {
+            constexpr uint32_t smask = detail::mod_shuffle(I0, I1, I2, I3);
+            // shuffle within lane
+            if (I4 == (I0 + 4) && I5 == (I1 + 4) && I6 == (I2 + 4) && I7 == (I3 + 4) && I0 < 4 && I1 < 4 && I2 >= 8 && I2 < 12 && I3 >= 8 && I3 < 12)
+                return _mm256_shuffle_ps(x, y, smask);
+
+            // shuffle within opposite lane
+            if (I4 == (I0 + 4) && I5 == (I1 + 4) && I6 == (I2 + 4) && I7 == (I3 + 4) && I2 < 4 && I3 < 4 && I0 >= 8 && I0 < 12 && I1 >= 8 && I1 < 12)
+                return _mm256_shuffle_ps(y, x, smask);
+
+            (void)mask;
+            // general pattern: two vpermps and a constant blend; see the double arm
+            return _mm256_blend_ps(_mm256_permutevar8x32_ps(x, _mm256_set_epi32((I7 < 8) ? I7 : 0, (I6 < 8) ? I6 : 0, (I5 < 8) ? I5 : 0, (I4 < 8) ? I4 : 0, (I3 < 8) ? I3 : 0, (I2 < 8) ? I2 : 0, (I1 < 8) ? I1 : 0, (I0 < 8) ? I0 : 0)),
+                                   _mm256_permutevar8x32_ps(y, _mm256_set_epi32((I7 >= 8) ? I7 - 8 : 0, (I6 >= 8) ? I6 - 8 : 0, (I5 >= 8) ? I5 - 8 : 0, (I4 >= 8) ? I4 - 8 : 0, (I3 >= 8) ? I3 - 8 : 0, (I2 >= 8) ? I2 - 8 : 0, (I1 >= 8) ? I1 - 8 : 0, (I0 >= 8) ? I0 - 8 : 0)),
+                                   int((I0 >= 8) | ((I1 >= 8) << 1) | ((I2 >= 8) << 2) | ((I3 >= 8) << 3) | ((I4 >= 8) << 4) | ((I5 >= 8) << 5) | ((I6 >= 8) << 6) | ((I7 >= 8) << 7)));
+        }
+
         // slide_left
         template <size_t N, class A, class T>
         XSIMD_INLINE batch<T, A> slide_left(batch<T, A> const& x, requires_arch<avx2>) noexcept

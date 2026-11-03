@@ -498,3 +498,74 @@ TEST_CASE_TEMPLATE("[xsimd cast tests]", B, CONVERSION_TYPES)
 }
 #endif
 #endif
+
+#if !defined(XSIMD_NO_SUPPORTED_ARCHITECTURE) && (!XSIMD_WITH_NEON || XSIMD_WITH_NEON64)
+namespace
+{
+    template <class T_out, class B_in>
+    void check_narrow_one(const B_in& x)
+    {
+        using B_out = xsimd::make_sized_batch_t<T_out, B_in::size>;
+        if constexpr (!std::is_void_v<B_out>)
+        {
+            const B_out r = xsimd::narrow_cast<T_out>(x);
+            for (size_t i = 0; i < B_in::size; ++i)
+            {
+                INFO("narrow one, lane ", i);
+                CHECK_SCALAR_EQ(static_cast<T_out>(x.get(i)), r.get(i));
+            }
+        }
+    }
+
+    template <class T_out, class B_in>
+    void check_narrow_pair(const B_in& lo, const B_in& hi)
+    {
+        const auto r = xsimd::narrow_cast<T_out>(lo, hi);
+        for (size_t i = 0; i < B_in::size; ++i)
+        {
+            INFO("narrow pair, lane ", i);
+            CHECK_SCALAR_EQ(static_cast<T_out>(lo.get(i)), r.get(i));
+        }
+        for (size_t i = 0; i < B_in::size; ++i)
+        {
+            INFO("narrow pair, lane ", B_in::size + i);
+            CHECK_SCALAR_EQ(static_cast<T_out>(hi.get(i)), r.get(B_in::size + i));
+        }
+    }
+}
+
+TEST_CASE("[xsimd narrow_cast]")
+{
+    using B = xsimd::batch<double>;
+    alignas(xsimd::default_arch::alignment()) double in_lo[B::size];
+    alignas(xsimd::default_arch::alignment()) double in_hi[B::size];
+    for (size_t i = 0; i < B::size; ++i)
+    {
+        // fractional values of both signs check truncation toward zero
+        in_lo[i] = 0.5 * double(i) - 1.25;
+        in_hi[i] = 1.25 - 0.5 * double(i);
+    }
+    const B lo = B::load_aligned(in_lo);
+    const B hi = B::load_aligned(in_hi);
+
+    SUBCASE("narrow double to int32")
+    {
+        check_narrow_one<std::int32_t>(lo);
+    }
+
+    SUBCASE("narrow double to float")
+    {
+        check_narrow_one<float>(lo);
+    }
+
+    SUBCASE("narrow pair to float")
+    {
+        check_narrow_pair<float>(lo, hi);
+    }
+
+    SUBCASE("narrow pair to int32")
+    {
+        check_narrow_pair<std::int32_t>(lo, hi);
+    }
+}
+#endif

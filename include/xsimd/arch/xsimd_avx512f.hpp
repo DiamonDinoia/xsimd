@@ -277,9 +277,9 @@ namespace xsimd
             XSIMD_INLINE __m512 load_masked(__m256 lo) noexcept { return zero_extend(lo); }
             XSIMD_INLINE __m512d load_masked(__m256d lo) noexcept { return zero_extend(lo); }
             XSIMD_INLINE __m512i load_masked(__m256i lo) noexcept { return zero_extend(lo); }
-            XSIMD_INLINE __m512 load_masked(__m256 hi, high_tag) noexcept { return zero_extend(hi, high_tag {}); }
-            XSIMD_INLINE __m512d load_masked(__m256d hi, high_tag) noexcept { return zero_extend(hi, high_tag {}); }
-            XSIMD_INLINE __m512i load_masked(__m256i hi, high_tag) noexcept { return zero_extend(hi, high_tag {}); }
+            XSIMD_INLINE __m512 load_masked(__m256 hi, high_tag) noexcept { return zero_extend(hi, high_tag { }); }
+            XSIMD_INLINE __m512d load_masked(__m256d hi, high_tag) noexcept { return zero_extend(hi, high_tag { }); }
+            XSIMD_INLINE __m512i load_masked(__m256i hi, high_tag) noexcept { return zero_extend(hi, high_tag { }); }
 
             // pointer-level masked stores (overloads by pointer/value size and alignment)
             XSIMD_INLINE void store_masked(float* mem, __m512 src, uint64_t m, aligned_mode) noexcept { _mm512_mask_store_ps(mem, (__mmask16)m, src); }
@@ -310,19 +310,19 @@ namespace xsimd
             if constexpr (mask.countl_zero() >= half) // lower 256-bit half
             {
                 constexpr auto mlo = ::xsimd::detail::lower_half<half_arch>(mask);
-                const auto lo = load_masked<half_arch>(mem, mlo, convert<T> {}, Mode {}, half_arch {});
+                const auto lo = load_masked<half_arch>(mem, mlo, convert<T> { }, Mode { }, half_arch { });
                 return detail::load_masked(lo); // zero-extend low half
             }
             else if constexpr (mask.countr_zero() >= half) // upper 256-bit half
             {
                 constexpr auto mhi = ::xsimd::detail::upper_half<half_arch>(mask);
-                const auto hi = load_masked<half_arch>(mem + half, mhi, convert<T> {}, Mode {}, half_arch {});
-                return detail::load_masked(hi, detail::high_tag {});
+                const auto hi = load_masked<half_arch>(mem + half, mhi, convert<T> { }, Mode { }, half_arch { });
+                return detail::load_masked(hi, detail::high_tag { });
             }
             else
             {
                 // fallback to centralized pointer-level helper
-                return detail::load_masked(mem, mask.mask(), Mode {});
+                return detail::load_masked(mem, mask.mask(), Mode { });
             }
         }
 
@@ -340,18 +340,18 @@ namespace xsimd
             {
                 constexpr auto mlo = ::xsimd::detail::lower_half<half_arch>(mask);
                 const half_batch lo = detail::lower_half(src);
-                store_masked<half_arch>(mem, lo, mlo, Mode {}, half_arch {});
+                store_masked<half_arch>(mem, lo, mlo, Mode { }, half_arch { });
             }
             else if constexpr (mask.countr_zero() >= half) // upper 256-bit half
             {
                 constexpr auto mhi = ::xsimd::detail::upper_half<half_arch>(mask);
                 const half_batch hi = detail::upper_half(src);
-                store_masked<half_arch>(mem + half, hi, mhi, Mode {}, half_arch {});
+                store_masked<half_arch>(mem + half, hi, mhi, Mode { }, half_arch { });
             }
             else
             {
                 // fallback to centralized pointer-level helper
-                detail::store_masked(mem, src, mask.mask(), Mode {});
+                detail::store_masked(mem, src, mask.mask(), Mode { });
             }
         }
 
@@ -363,14 +363,14 @@ namespace xsimd
                   typename = std::enable_if_t<(sizeof(T) >= 4)>>
         XSIMD_INLINE batch<T, A> load_masked(T const* mem, batch_bool<T, A> mask, convert<T>, Mode, requires_arch<avx512f>) noexcept
         {
-            return detail::load_masked(mem, mask.mask(), Mode {});
+            return detail::load_masked(mem, mask.mask(), Mode { });
         }
 
         template <class A, class T, class Mode,
                   typename = std::enable_if_t<(sizeof(T) >= 4)>>
         XSIMD_INLINE void store_masked(T* mem, batch<T, A> const& src, batch_bool<T, A> mask, Mode, requires_arch<avx512f>) noexcept
         {
-            detail::store_masked(mem, src, mask.mask(), Mode {});
+            detail::store_masked(mem, src, mask.mask(), Mode { });
         }
 
         // abs
@@ -422,7 +422,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
 
@@ -453,7 +453,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
         template <class A>
@@ -560,7 +560,7 @@ namespace xsimd
             else if constexpr (sizeof(T) == 2)
             {
                 return detail::fwd_to_avx([](__m256i s, int32_t o) noexcept
-                                          { return bitwise_lshift(batch<T, avx2>(s), o, avx2 {}); },
+                                          { return bitwise_lshift(batch<T, avx2>(s), o, avx2 { }); },
                                           self, other);
 #if defined(XSIMD_AVX512_SHIFT_INTRINSICS_IMM_ONLY)
             }
@@ -585,7 +585,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
 
@@ -665,7 +665,7 @@ namespace xsimd
                 else
                 {
                     return detail::fwd_to_avx([](__m256i s, int32_t o) noexcept
-                                              { return bitwise_rshift(batch<T, avx2>(s), o, avx2 {}); },
+                                              { return bitwise_rshift(batch<T, avx2>(s), o, avx2 { }); },
                                               self, other);
                 }
             }
@@ -702,7 +702,7 @@ namespace xsimd
                 else
                 {
                     return detail::fwd_to_avx([](__m256i s, int32_t o) noexcept
-                                              { return bitwise_rshift(batch<T, avx2>(s), o, avx2 {}); },
+                                              { return bitwise_rshift(batch<T, avx2>(s), o, avx2 { }); },
                                               self, other);
                 }
             }
@@ -721,13 +721,13 @@ namespace xsimd
                 return _mm512_rolv_epi64(self, other);
             }
             return detail::fwd_to_avx([](__m256i s, __m256i o) noexcept
-                                      { return rotl(batch<T, avx2>(s), batch<T, avx2>(o), avx2 {}); },
+                                      { return rotl(batch<T, avx2>(s), batch<T, avx2>(o), avx2 { }); },
                                       self, other);
         }
         template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> rotl(batch<T, A> const& self, int32_t other, requires_arch<avx512f>) noexcept
         {
-            return rotl(self, batch<T, A>(other), A {});
+            return rotl(self, batch<T, A>(other), A { });
         }
         template <size_t count, class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> rotl(batch<T, A> const& self, requires_arch<avx512f>) noexcept
@@ -744,7 +744,7 @@ namespace xsimd
             }
 
             return detail::fwd_to_avx([](__m256i s) noexcept
-                                      { return rotl<count>(batch<T, avx2>(s), avx2 {}); },
+                                      { return rotl<count>(batch<T, avx2>(s), avx2 { }); },
                                       self);
         }
 
@@ -755,7 +755,7 @@ namespace xsimd
             if constexpr (sizeof(T) < 4)
             {
                 return detail::fwd_to_avx([](__m256i s, __m256i o) noexcept
-                                          { return rotr(batch<T, avx2>(s), batch<T, avx2>(o), avx2 {}); },
+                                          { return rotr(batch<T, avx2>(s), batch<T, avx2>(o), avx2 { }); },
                                           self, other);
             }
             if constexpr (std::is_unsigned_v<T>)
@@ -769,12 +769,12 @@ namespace xsimd
                     return _mm512_rorv_epi64(self, other);
                 }
             }
-            return rotr(self, other, common {});
+            return rotr(self, other, common { });
         }
         template <class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> rotr(batch<T, A> const& self, int32_t other, requires_arch<avx512f>) noexcept
         {
-            return rotr(self, batch<T, A>(other), A {});
+            return rotr(self, batch<T, A>(other), A { });
         }
 
         template <size_t count, class A, class T, class = std::enable_if_t<std::is_integral_v<T>>>
@@ -785,7 +785,7 @@ namespace xsimd
             if constexpr (sizeof(T) < 4)
             {
                 return detail::fwd_to_avx([](__m256i s) noexcept
-                                          { return rotr<count>(batch<T, avx2>(s), avx2 {}); },
+                                          { return rotr<count>(batch<T, avx2>(s), avx2 { }); },
                                           self);
             }
             if constexpr (std::is_unsigned_v<T>)
@@ -799,7 +799,7 @@ namespace xsimd
                     return _mm512_ror_epi64(self, count);
                 }
             }
-            return rotr<count>(self, common {});
+            return rotr<count>(self, common { });
         }
 
         // bitwise_xor
@@ -887,7 +887,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported");
-                return {};
+                return { };
             }
         }
         template <class A>
@@ -1018,7 +1018,7 @@ namespace xsimd
             }
             else
             {
-                return decr_if(self, mask, common {});
+                return decr_if(self, mask, common { });
             }
         }
 
@@ -1380,7 +1380,7 @@ namespace xsimd
             }
             else
             {
-                return incr_if(self, mask, common {});
+                return incr_if(self, mask, common { });
             }
         }
 
@@ -1415,12 +1415,12 @@ namespace xsimd
             else if constexpr (sizeof(T) == 8)
             {
                 batch<T, sse4_2> low = _mm512_castsi512_si128(self);
-                return first(low, sse4_2 {});
+                return first(low, sse4_2 { });
             }
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
 
@@ -1430,7 +1430,7 @@ namespace xsimd
         {
             if constexpr (I == 0)
             {
-                return first(self, avx512f {});
+                return first(self, avx512f { });
             }
             const auto rotated = _mm512_alignr_epi32(_mm512_castps_si512(self), _mm512_castps_si512(self), I);
             return _mm_cvtss_f32(_mm512_castps512_ps128(_mm512_castsi512_ps(rotated)));
@@ -1441,7 +1441,7 @@ namespace xsimd
         {
             if constexpr (I == 0)
             {
-                return first(self, avx512f {});
+                return first(self, avx512f { });
             }
             const auto rotated = _mm512_alignr_epi64(_mm512_castpd_si512(self), _mm512_castpd_si512(self), I);
             return _mm_cvtsd_f64(_mm512_castpd512_pd128(_mm512_castsi512_pd(rotated)));
@@ -1452,17 +1452,17 @@ namespace xsimd
         {
             if constexpr (I == 0)
             {
-                return first(self, avx512f {});
+                return first(self, avx512f { });
             }
             else if constexpr (sizeof(T) == 4)
             {
                 const auto rotated = _mm512_alignr_epi32(self, self, I);
-                return first(batch<T, sse4_2>(_mm512_castsi512_si128(rotated)), sse4_2 {});
+                return first(batch<T, sse4_2>(_mm512_castsi512_si128(rotated)), sse4_2 { });
             }
             else if constexpr (sizeof(T) == 8)
             {
                 const auto rotated = _mm512_alignr_epi64(self, self, I);
-                return first(batch<T, sse4_2>(_mm512_castsi512_si128(rotated)), sse4_2 {});
+                return first(batch<T, sse4_2>(_mm512_castsi512_si128(rotated)), sse4_2 { });
             }
             else
             {
@@ -1471,7 +1471,7 @@ namespace xsimd
                 constexpr size_t lane = I / elements_per_lane;
                 constexpr size_t sub_index = I % elements_per_lane;
                 const auto half = (lane == 0) ? detail::lower_half(self) : detail::upper_half(self);
-                return kernel::get(batch<T, avx>(half), ::xsimd::index<sub_index> {}, avx {});
+                return kernel::get(batch<T, avx>(half), ::xsimd::index<sub_index> { }, avx { });
             }
         }
 
@@ -1503,7 +1503,7 @@ namespace xsimd
             }
             else
             {
-                return insert(self, val, pos, common {});
+                return insert(self, val, pos, common { });
             }
         }
 
@@ -1987,7 +1987,7 @@ namespace xsimd
         {
             __m256i low = detail::lower_half(self), high = detail::upper_half(self);
             batch<T, avx2> blow(low), bhigh(high);
-            return reduce_add(blow, avx2 {}) + reduce_add(bhigh, avx2 {});
+            return reduce_add(blow, avx2 { }) + reduce_add(bhigh, avx2 { });
         }
 
         // reduce_max
@@ -2032,7 +2032,7 @@ namespace xsimd
             {
                 __m256i low = detail::lower_half(self), high = detail::upper_half(self);
                 batch<T, avx2> blow(low), bhigh(high);
-                return reduce_mul(blow, avx2 {}) * reduce_mul(bhigh, avx2 {});
+                return reduce_mul(blow, avx2 { }) * reduce_mul(bhigh, avx2 { });
             }
         }
 
@@ -2129,8 +2129,8 @@ namespace xsimd
                 __m256i true_low = detail::lower_half(true_br), true_hi = detail::upper_half(true_br);
                 __m256i false_low = detail::lower_half(false_br), false_hi = detail::upper_half(false_br);
 
-                __m256i res_low = select(batch_bool<T, avx2>(cond_low), batch<T, avx2>(true_low), batch<T, avx2>(false_low), avx2 {});
-                __m256i res_hi = select(batch_bool<T, avx2>(cond_hi), batch<T, avx2>(true_hi), batch<T, avx2>(false_hi), avx2 {});
+                __m256i res_low = select(batch_bool<T, avx2>(cond_low), batch<T, avx2>(true_low), batch<T, avx2>(false_low), avx2 { });
+                __m256i res_hi = select(batch_bool<T, avx2>(cond_hi), batch<T, avx2>(true_hi), batch<T, avx2>(false_hi), avx2 { });
                 return detail::merge_avx(res_low, res_hi);
             }
             else if constexpr (sizeof(T) == 2)
@@ -2141,8 +2141,8 @@ namespace xsimd
                 __m256i true_low = detail::lower_half(true_br), true_hi = detail::upper_half(true_br);
                 __m256i false_low = detail::lower_half(false_br), false_hi = detail::upper_half(false_br);
 
-                __m256i res_low = select(batch_bool<T, avx2>(cond_low), batch<T, avx2>(true_low), batch<T, avx2>(false_low), avx2 {});
-                __m256i res_hi = select(batch_bool<T, avx2>(cond_hi), batch<T, avx2>(true_hi), batch<T, avx2>(false_hi), avx2 {});
+                __m256i res_low = select(batch_bool<T, avx2>(cond_low), batch<T, avx2>(true_low), batch<T, avx2>(false_low), avx2 { });
+                __m256i res_hi = select(batch_bool<T, avx2>(cond_hi), batch<T, avx2>(true_hi), batch<T, avx2>(false_hi), avx2 { });
                 return detail::merge_avx(res_low, res_hi);
             }
             else if constexpr (sizeof(T) == 4)
@@ -2156,14 +2156,14 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/type combination");
-                return {};
+                return { };
             }
         }
 
         template <class A, class T, bool... Values, class = std::enable_if_t<std::is_integral_v<T>>>
         XSIMD_INLINE batch<T, A> select(batch_bool_constant<T, A, Values...> const&, batch<T, A> const& true_br, batch<T, A> const& false_br, requires_arch<avx512f>) noexcept
         {
-            return select(batch_bool<T, A> { Values... }, true_br, false_br, avx512f {});
+            return select(batch_bool<T, A> { Values... }, true_br, false_br, avx512f { });
         }
 
         namespace detail
@@ -2293,6 +2293,31 @@ namespace xsimd
             return ::xsimd::utils::make_bit_mask_from_bools<reg_t>(values...);
         }
 
+        // narrow_cast
+        template <class A, class B_out, class = std::enable_if_t<std::is_same_v<typename B_out::value_type, std::int32_t> || std::is_same_v<typename B_out::value_type, float>>>
+        XSIMD_INLINE B_out narrow_cast(batch<double, A> const& self, B_out const&, requires_arch<avx512f>) noexcept
+        {
+            if constexpr (std::is_same_v<typename B_out::value_type, std::int32_t>)
+                return B_out(_mm512_cvttpd_epi32(self));
+            else
+                return B_out(_mm512_cvtpd_ps(self));
+        }
+
+        template <class A, class T_out, class = std::enable_if_t<std::is_same_v<T_out, std::int32_t> || std::is_same_v<T_out, float>>>
+        XSIMD_INLINE batch<T_out, A> narrow_cast(batch<double, A> const& lo, batch<double, A> const& hi, batch<T_out, A> const&, requires_arch<avx512f>) noexcept
+        {
+            // one vpermt2ps/pd packs the two half-width cvt results (AVX512F; the
+            // natural insertf64x4 would need AVX512DQ)
+            if constexpr (std::is_same_v<T_out, std::int32_t>)
+                return batch<T_out, A>(_mm512_permutex2var_epi32(_mm512_castsi256_si512(_mm512_cvttpd_epi32(lo)),
+                                                                 _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0),
+                                                                 _mm512_castsi256_si512(_mm512_cvttpd_epi32(hi))));
+            else
+                return batch<T_out, A>(_mm512_permutex2var_ps(_mm512_castps256_ps512(_mm512_cvtpd_ps(lo)),
+                                                              _mm512_set_epi32(23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4, 3, 2, 1, 0),
+                                                              _mm512_castps256_ps512(_mm512_cvtpd_ps(hi))));
+        }
+
         // shuffle
         template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3, ITy I4, ITy I5, ITy I6, ITy I7, ITy I8, ITy I9, ITy I10, ITy I11, ITy I12, ITy I13, ITy I14, ITy I15>
         XSIMD_INLINE batch<float, A> shuffle(batch<float, A> const& x, batch<float, A> const& y,
@@ -2309,7 +2334,9 @@ namespace xsimd
             if ((I4 == I0 + 4) && (I5 == I1 + 4) && (I6 == I2 + 4) && (I7 == I3 + 4) && (I8 == I0 + 8) && (I9 == I1 + 8) && (I10 == I2 + 8) && (I11 == I3 + 8) && (I12 == I0 + 12) && (I13 == I1 + 12) && (I14 == I2 + 12) && (I15 == I3 + 12) && I2 < 4 && I3 < 4 && I0 >= 16 && I0 < 20 && I1 >= 16 && I1 < 20)
                 return _mm512_shuffle_ps(y, x, smask);
 
-            return shuffle(x, y, mask, common {});
+            (void)mask;
+            // general pattern: one vpermt2ps; index bit 4 picks the table (AVX512F only)
+            return _mm512_permutex2var_ps(x, _mm512_set_epi32(I15, I14, I13, I12, I11, I10, I9, I8, I7, I6, I5, I4, I3, I2, I1, I0), y);
         }
 
         template <class A, class ITy, ITy I0, ITy I1, ITy I2, ITy I3, ITy I4, ITy I5, ITy I6, ITy I7>
@@ -2324,7 +2351,9 @@ namespace xsimd
             if (I1 < 2 && I0 >= 8 && I0 < 10 && I3 >= 2 && I3 < 4 && I2 >= 10 && I2 < 12 && I5 >= 4 && I5 < 6 && I4 >= 12 && I4 < 14 && I7 >= 6 && I7 < 8 && I6 >= 14)
                 return _mm512_shuffle_pd(y, x, smask);
 
-            return shuffle(x, y, mask, common {});
+            (void)mask;
+            // general pattern: one vpermt2pd; index bit 3 picks the table (AVX512F only)
+            return _mm512_permutex2var_pd(x, _mm512_set_epi64(I7, I6, I5, I4, I3, I2, I1, I0), y);
         }
 
         // slide_left
@@ -2373,11 +2402,11 @@ namespace xsimd
             if (N == NN || NN >= 64)
             {
                 // Call fast path
-                return detail::slide_left_aligned_u32<NN>(x, A {});
+                return detail::slide_left_aligned_u32<NN>(x, A { });
             }
 
-            __m512i xl = detail::slide_left_aligned_u32<NN, A, T>(_mm512_slli_epi32(x, 8 * (N - NN)), A {});
-            __m512i xr = detail::slide_left_aligned_u32<NN + 4, A, T>(_mm512_srli_epi32(x, 32 - 8 * (N - NN)), A {});
+            __m512i xl = detail::slide_left_aligned_u32<NN, A, T>(_mm512_slli_epi32(x, 8 * (N - NN)), A { });
+            __m512i xr = detail::slide_left_aligned_u32<NN + 4, A, T>(_mm512_srli_epi32(x, 32 - 8 * (N - NN)), A { });
             return _mm512_or_epi32(xl, xr);
         }
 
@@ -2426,11 +2455,11 @@ namespace xsimd
             if (N == NN || NN >= 64)
             {
                 // Call fast path
-                return detail::slide_right_aligned_u32<NN>(x, A {});
+                return detail::slide_right_aligned_u32<NN>(x, A { });
             }
 
-            __m512i xl = detail::slide_right_aligned_u32<NN + 4, A, T>(_mm512_slli_epi32(x, 32 - 8 * (N - NN)), A {});
-            __m512i xr = detail::slide_right_aligned_u32<NN, A, T>(_mm512_srli_epi32(x, 8 * (N - NN)), A {});
+            __m512i xl = detail::slide_right_aligned_u32<NN + 4, A, T>(_mm512_slli_epi32(x, 32 - 8 * (N - NN)), A { });
+            __m512i xr = detail::slide_right_aligned_u32<NN, A, T>(_mm512_srli_epi32(x, 8 * (N - NN)), A { });
             return _mm512_or_epi32(xl, xr);
         }
 
@@ -2455,7 +2484,7 @@ namespace xsimd
             if constexpr (sizeof(T) == 1 || sizeof(T) == 2)
             {
                 return detail::fwd_to_avx([](__m256i s, __m256i o) noexcept
-                                          { return ssub(batch<T, avx2>(s), batch<T, avx2>(o), avx2 {}); },
+                                          { return ssub(batch<T, avx2>(s), batch<T, avx2>(o), avx2 { }); },
                                           self, other);
             }
             else if (std::is_signed_v<T>)
@@ -2570,7 +2599,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
         template <class A>
@@ -2606,7 +2635,7 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<int64_t, A> swizzle(batch<int64_t, A> const& self, batch<uint64_t, A> mask, requires_arch<avx512f>) noexcept
         {
-            return bitwise_cast<int64_t>(swizzle(bitwise_cast<uint64_t>(self), mask, avx512f {}));
+            return bitwise_cast<int64_t>(swizzle(bitwise_cast<uint64_t>(self), mask, avx512f { }));
         }
 
         template <class A>
@@ -2618,7 +2647,7 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE batch<int32_t, A> swizzle(batch<int32_t, A> const& self, batch<uint32_t, A> mask, requires_arch<avx512f>) noexcept
         {
-            return bitwise_cast<int32_t>(swizzle(bitwise_cast<uint32_t>(self), mask, avx512f {}));
+            return bitwise_cast<int32_t>(swizzle(bitwise_cast<uint32_t>(self), mask, avx512f { }));
         }
 
         template <class A, uint32_t V0, uint32_t V1, uint32_t V2, uint32_t V3, uint32_t V4, uint32_t V5, uint32_t V6, uint32_t V7,
@@ -2642,7 +2671,7 @@ namespace xsimd
                     return _mm512_permute_ps(self, imm0);
                 }
             }
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
         template <class A, uint64_t V0, uint64_t V1, uint64_t V2, uint64_t V3, uint64_t V4, uint64_t V5, uint64_t V6, uint64_t V7>
         XSIMD_INLINE batch<double, A> swizzle(batch<double, A> const& self,
@@ -2665,35 +2694,35 @@ namespace xsimd
                 const batch<double, avx2> half = _mm512_extractf64x4_pd(self, dup_lo ? 0 : 1);
                 constexpr std::conditional_t<dup_lo, batch_constant<uint64_t, avx2, V0 % 4, V1 % 4, V2 % 4, V3 % 4>,
                                              batch_constant<uint64_t, avx2, V4 % 4, V5 % 4, V6 % 4, V7 % 4>>
-                    half_mask {};
-                return _mm512_broadcast_f64x4(swizzle(half, half_mask, avx2 {}));
+                    half_mask { };
+                return _mm512_broadcast_f64x4(swizzle(half, half_mask, avx2 { }));
             }
             // General case
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
 
         template <class A, uint64_t... Vs>
         XSIMD_INLINE batch<uint64_t, A> swizzle(batch<uint64_t, A> const& self, batch_constant<uint64_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
 
         template <class A, uint64_t... Vs>
         XSIMD_INLINE batch<int64_t, A> swizzle(batch<int64_t, A> const& self, batch_constant<uint64_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
 
         template <class A, uint32_t... Vs>
         XSIMD_INLINE batch<uint32_t, A> swizzle(batch<uint32_t, A> const& self, batch_constant<uint32_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
 
         template <class A, uint32_t... Vs>
         XSIMD_INLINE batch<int32_t, A> swizzle(batch<int32_t, A> const& self, batch_constant<uint32_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            return swizzle(self, mask.as_batch(), avx512f {});
+            return swizzle(self, mask.as_batch(), avx512f { });
         }
 
         namespace detail
@@ -2764,7 +2793,7 @@ namespace xsimd
             }
             else
             {
-                return swizzle(self, mask, common {});
+                return swizzle(self, mask, common { });
             }
         }
 
@@ -2772,7 +2801,7 @@ namespace xsimd
         XSIMD_INLINE batch<int16_t, A>
         swizzle(batch<int16_t, A> const& self, batch_constant<uint16_t, A, Vs...> mask, requires_arch<avx512f>) noexcept
         {
-            return bitwise_cast<int16_t>(swizzle(bitwise_cast<uint16_t>(self), mask, avx512f {}));
+            return bitwise_cast<int16_t>(swizzle(bitwise_cast<uint16_t>(self), mask, avx512f { }));
         }
 
         // transpose
@@ -2784,22 +2813,22 @@ namespace xsimd
             batch<uint16_t, avx2> tmp_lo0[16];
             for (int i = 0; i < 16; ++i)
                 tmp_lo0[i] = _mm512_castsi512_si256(matrix_begin[i]);
-            transpose(tmp_lo0 + 0, tmp_lo0 + 16, avx2 {});
+            transpose(tmp_lo0 + 0, tmp_lo0 + 16, avx2 { });
 
             batch<uint16_t, avx2> tmp_hi0[16];
             for (int i = 0; i < 16; ++i)
                 tmp_hi0[i] = _mm512_castsi512_si256(matrix_begin[16 + i]);
-            transpose(tmp_hi0 + 0, tmp_hi0 + 16, avx2 {});
+            transpose(tmp_hi0 + 0, tmp_hi0 + 16, avx2 { });
 
             batch<uint16_t, avx2> tmp_lo1[16];
             for (int i = 0; i < 16; ++i)
                 tmp_lo1[i] = _mm512_extracti64x4_epi64(matrix_begin[i], 1);
-            transpose(tmp_lo1 + 0, tmp_lo1 + 16, avx2 {});
+            transpose(tmp_lo1 + 0, tmp_lo1 + 16, avx2 { });
 
             batch<uint16_t, avx2> tmp_hi1[16];
             for (int i = 0; i < 16; ++i)
                 tmp_hi1[i] = _mm512_extracti64x4_epi64(matrix_begin[16 + i], 1);
-            transpose(tmp_hi1 + 0, tmp_hi1 + 16, avx2 {});
+            transpose(tmp_hi1 + 0, tmp_hi1 + 16, avx2 { });
 
             for (int i = 0; i < 16; ++i)
                 matrix_begin[i] = detail::merge_avx(tmp_lo0[i], tmp_hi0[i]);
@@ -2809,7 +2838,7 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE void transpose(batch<int16_t, A>* matrix_begin, batch<int16_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<uint16_t, A>*>(matrix_begin), reinterpret_cast<batch<uint16_t, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<uint16_t, A>*>(matrix_begin), reinterpret_cast<batch<uint16_t, A>*>(matrix_end), A { });
         }
 
         template <class A>
@@ -2820,22 +2849,22 @@ namespace xsimd
             batch<uint8_t, avx2> tmp_lo0[32];
             for (int i = 0; i < 32; ++i)
                 tmp_lo0[i] = _mm512_castsi512_si256(matrix_begin[i]);
-            transpose(tmp_lo0 + 0, tmp_lo0 + 32, avx2 {});
+            transpose(tmp_lo0 + 0, tmp_lo0 + 32, avx2 { });
 
             batch<uint8_t, avx2> tmp_hi0[32];
             for (int i = 0; i < 32; ++i)
                 tmp_hi0[i] = _mm512_castsi512_si256(matrix_begin[32 + i]);
-            transpose(tmp_hi0 + 0, tmp_hi0 + 32, avx2 {});
+            transpose(tmp_hi0 + 0, tmp_hi0 + 32, avx2 { });
 
             batch<uint8_t, avx2> tmp_lo1[32];
             for (int i = 0; i < 32; ++i)
                 tmp_lo1[i] = _mm512_extracti64x4_epi64(matrix_begin[i], 1);
-            transpose(tmp_lo1 + 0, tmp_lo1 + 32, avx2 {});
+            transpose(tmp_lo1 + 0, tmp_lo1 + 32, avx2 { });
 
             batch<uint8_t, avx2> tmp_hi1[32];
             for (int i = 0; i < 32; ++i)
                 tmp_hi1[i] = _mm512_extracti64x4_epi64(matrix_begin[32 + i], 1);
-            transpose(tmp_hi1 + 0, tmp_hi1 + 32, avx2 {});
+            transpose(tmp_hi1 + 0, tmp_hi1 + 32, avx2 { });
 
             for (int i = 0; i < 32; ++i)
                 matrix_begin[i] = detail::merge_avx(tmp_lo0[i], tmp_hi0[i]);
@@ -2845,7 +2874,7 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE void transpose(batch<int8_t, A>* matrix_begin, batch<int8_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<uint8_t, A>*>(matrix_begin), reinterpret_cast<batch<uint8_t, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<uint8_t, A>*>(matrix_begin), reinterpret_cast<batch<uint8_t, A>*>(matrix_end), A { });
         }
 
         template <class A>
@@ -2882,12 +2911,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE void transpose(batch<uint32_t, A>* matrix_begin, batch<uint32_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<float, A>*>(matrix_begin), reinterpret_cast<batch<float, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<float, A>*>(matrix_begin), reinterpret_cast<batch<float, A>*>(matrix_end), A { });
         }
         template <class A>
         XSIMD_INLINE void transpose(batch<int32_t, A>* matrix_begin, batch<int32_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<float, A>*>(matrix_begin), reinterpret_cast<batch<float, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<float, A>*>(matrix_begin), reinterpret_cast<batch<float, A>*>(matrix_end), A { });
         }
 
         template <class A>
@@ -2917,12 +2946,12 @@ namespace xsimd
         template <class A>
         XSIMD_INLINE void transpose(batch<uint64_t, A>* matrix_begin, batch<uint64_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<double, A>*>(matrix_begin), reinterpret_cast<batch<double, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<double, A>*>(matrix_begin), reinterpret_cast<batch<double, A>*>(matrix_end), A { });
         }
         template <class A>
         XSIMD_INLINE void transpose(batch<int64_t, A>* matrix_begin, batch<int64_t, A>* matrix_end, requires_arch<avx512f>) noexcept
         {
-            return transpose(reinterpret_cast<batch<double, A>*>(matrix_begin), reinterpret_cast<batch<double, A>*>(matrix_end), A {});
+            return transpose(reinterpret_cast<batch<double, A>*>(matrix_begin), reinterpret_cast<batch<double, A>*>(matrix_end), A { });
         }
 
         // trunc
@@ -2947,12 +2976,12 @@ namespace xsimd
             if constexpr (sizeof(T) == 1)
             {
                 assert(false && "not implemented yet");
-                return {};
+                return { };
             }
             else if constexpr (sizeof(T) == 2)
             {
                 assert(false && "not implemented yet");
-                return {};
+                return { };
             }
             else if constexpr (sizeof(T) == 4)
             {
@@ -2968,7 +2997,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
         template <class A>
@@ -2996,12 +3025,12 @@ namespace xsimd
             if constexpr (sizeof(T) == 1)
             {
                 assert(false && "not implemented yet");
-                return {};
+                return { };
             }
             else if constexpr (sizeof(T) == 2)
             {
                 assert(false && "not implemented yet");
-                return {};
+                return { };
             }
             else if constexpr (sizeof(T) == 4)
             {
@@ -3017,7 +3046,7 @@ namespace xsimd
             else
             {
                 assert(false && "unsupported arch/op combination");
-                return {};
+                return { };
             }
         }
         template <class A>
@@ -3071,8 +3100,8 @@ namespace xsimd
             }
             else if constexpr (sizeof(T) == 1)
             {
-                auto pair_lo = widen(batch<T, avx2>(x_lo), avx2 {});
-                auto pair_hi = widen(batch<T, avx2>(x_hi), avx2 {});
+                auto pair_lo = widen(batch<T, avx2>(x_lo), avx2 { });
+                auto pair_hi = widen(batch<T, avx2>(x_hi), avx2 { });
                 return { detail::merge_avx(pair_lo[0], pair_lo[1]), detail::merge_avx(pair_hi[0], pair_hi[1]) };
             }
             return { lo, hi };
