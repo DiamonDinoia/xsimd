@@ -668,7 +668,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog<B>();
+                    return constants::maxlogovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -682,7 +682,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog10<B>();
+                    return constants::maxlog10ovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -696,7 +696,7 @@ namespace xsimd
             {
                 static constexpr B maxlog() noexcept
                 {
-                    return constants::maxlog2<B>();
+                    return constants::maxlog2ovf<B>();
                 }
 
                 static constexpr B minlog() noexcept
@@ -1123,9 +1123,23 @@ namespace xsimd
         {
             using batch_type = batch<T, A>;
             using itype = as_integer_t<batch_type>;
-            itype ik = other + constants::maxexponent<T>();
-            ik = ik << constants::nmb<T>();
-            return self * ::xsimd::bitwise_cast<T>(ik);
+            // 2^k is not representable for k > maxexponent: the exponent field then encodes +inf. Rare,
+            // so the hot path keeps one multiply and those lanes take a two-step scaling below. Both
+            // factors are exact powers of two, so the result rounds once.
+            // shortcut: k > 2 * maxexponent overflows the exponent field again and gives garbage;
+            // clamp such inputs in the caller (exp/exp2/exp10 do), upgrade here when a caller needs them
+            if (!any(other > itype(constants::maxexponent<T>())))
+            {
+                itype ik = other + constants::maxexponent<T>();
+                ik = ik << constants::nmb<T>();
+                return self * ::xsimd::bitwise_cast<T>(ik);
+            }
+            // per lane: self * 2^k = (self * 2^min(k, maxexponent)) * 2^(k - min(k, maxexponent))
+            auto big = other > itype(constants::maxexponent<T>());
+            itype lo = select(big, itype(constants::maxexponent<T>()), other);
+            itype is = (lo + constants::maxexponent<T>()) << constants::nmb<T>();
+            itype ik = (other - lo + constants::maxexponent<T>()) << constants::nmb<T>();
+            return (self * ::xsimd::bitwise_cast<T>(is)) * ::xsimd::bitwise_cast<T>(ik);
         }
 
         // lgamma
