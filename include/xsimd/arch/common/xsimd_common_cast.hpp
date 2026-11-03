@@ -44,7 +44,7 @@ namespace xsimd
         {
             using T_out = typename B_out::value_type;
             alignas(A::alignment()) T_in buffer_in[batch<T_in, A>::size];
-            alignas(B_out::alignment()) T_out buffer_out[B_out::size];
+            alignas(A::alignment()) T_out buffer_out[B_out::size];
             self.store_aligned(&buffer_in[0]);
             for (size_t i = 0; i < B_out::size; ++i)
                 buffer_out[i] = static_cast<T_out>(buffer_in[i]);
@@ -55,7 +55,7 @@ namespace xsimd
         XSIMD_INLINE batch<T_out, A> narrow_cast(batch<T_in, A> const& lo, batch<T_in, A> const& hi, batch<T_out, A> const&, requires_arch<common>) noexcept
         {
             alignas(A::alignment()) T_in buffer_in[2 * batch<T_in, A>::size];
-            alignas(batch<T_out, A>::alignment()) T_out buffer_out[batch<T_out, A>::size];
+            alignas(A::alignment()) T_out buffer_out[batch<T_out, A>::size];
             lo.store_aligned(&buffer_in[0]);
             hi.store_aligned(&buffer_in[batch<T_in, A>::size]);
             for (size_t i = 0; i < batch<T_out, A>::size; ++i)
