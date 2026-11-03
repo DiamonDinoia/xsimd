@@ -14,11 +14,9 @@
 
 #include "test_utils.hpp"
 
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
