@@ -40,4 +40,12 @@ if(ENABLE_XTL_COMPLEX)
     target_link_libraries(mandelbrot PRIVATE xtl)
 endif()
 
+add_executable(std_simd std_simd.cpp)
+target_link_libraries(std_simd PRIVATE xsimd)
+if(CMAKE_CXX_STANDARD)
+    set_property(TARGET std_simd PROPERTY CXX_STANDARD ${CMAKE_CXX_STANDARD})
+else()
+    set_property(TARGET std_simd PROPERTY CXX_STANDARD 17)
+endif()
+
 add_custom_target(xmandelbrot COMMAND mandelbrot DEPENDS mandelbrot)

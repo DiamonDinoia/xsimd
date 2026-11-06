@@ -17,6 +17,7 @@
 #include "../config/xsimd_macros.hpp"
 #include "../memory/xsimd_alignment.hpp"
 #include "./xsimd_batch_fwd.hpp"
+#include "./xsimd_std_simd.hpp"
 #include "./xsimd_utils.hpp"
 
 #include <cassert>
@@ -255,6 +256,25 @@ namespace xsimd
 
         XSIMD_INLINE register_type to_native() const noexcept;
 
+#if defined(XSIMD_WITH_STD_SIMD) || defined(XSIMD_WITH_STD_EXPERIMENTAL_SIMD)
+        // implicit interop with std::simd / std::experimental::simd, matching width only
+        XSIMD_INLINE batch(detail::std_simd<T, size> const& s) noexcept
+        {
+            T tmp[size];
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                tmp[i] = s[i];
+            }
+            *this = load_unaligned(tmp);
+        }
+
+        XSIMD_INLINE operator detail::std_simd<T, size>() const noexcept
+        {
+            return detail::std_simd<T, size>([this](std::size_t i)
+                                             { return get(i); });
+        }
+#endif
+
         template <class U>
         [[nodiscard]] static XSIMD_INLINE batch broadcast(U val) noexcept;
 
@@ -449,6 +469,32 @@ namespace xsimd
         XSIMD_INLINE batch_bool(Tp const*) = delete;
 
         XSIMD_INLINE register_type to_native() const noexcept;
+
+#if defined(XSIMD_WITH_STD_SIMD) || defined(XSIMD_WITH_STD_EXPERIMENTAL_SIMD)
+        // implicit interop with std::simd / std::experimental::simd, matching width only
+        XSIMD_INLINE batch_bool(detail::std_simd_mask<T, size> const& m) noexcept
+        {
+            bool tmp[size];
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                tmp[i] = m[i];
+            }
+            *this = load_unaligned(tmp);
+        }
+
+        XSIMD_INLINE operator detail::std_simd_mask<T, size>() const noexcept
+        {
+#if defined(XSIMD_WITH_STD_SIMD)
+            return detail::std_simd_mask<T, size>([this](std::size_t i)
+                                                  { return get(i); });
+#else
+            // shortcut: std::experimental::simd_mask has no generator constructor, load from a lane array instead
+            bool tmp[size];
+            store_unaligned(tmp);
+            return detail::std_simd_mask<T, size>(tmp, std::experimental::element_aligned);
+#endif
+        }
+#endif
 
         // memory operators
         XSIMD_INLINE void store_aligned(bool* mem) const noexcept;

@@ -90,6 +90,7 @@ set(XSIMD_TESTS
     test_rounding.cpp
     test_select.cpp
     test_shuffle.cpp
+    test_std_simd.cpp
     test_sum.cpp
     test_traits.cpp
     test_trigonometric.cpp
