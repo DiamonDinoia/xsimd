@@ -13,6 +13,7 @@
 #define XSIMD_STD_SIMD_HPP
 
 #include <cstddef>
+#include <type_traits>
 
 #ifdef XSIMD_ENABLE_STD_SIMD
 
@@ -52,6 +53,28 @@ namespace xsimd
         template <class T, std::size_t N>
         using std_simd_mask = std::experimental::simd_mask<T, std::experimental::simd_abi::deduce_t<T, N>>;
 #endif
+
+        // some (T, N) pairs have no std type (TS deduce_t has no type above its
+        // fixed_size limit); detect without a hard error so callers can skip them
+        template <class S, class T, std::size_t N, class = void>
+        struct is_std_simd : std::false_type
+        {
+        };
+
+        template <class S, class T, std::size_t N>
+        struct is_std_simd<S, T, N, std::void_t<std_simd<T, N>>> : std::is_same<S, std_simd<T, N>>
+        {
+        };
+
+        template <class S, class T, std::size_t N, class = void>
+        struct is_std_simd_mask : std::false_type
+        {
+        };
+
+        template <class S, class T, std::size_t N>
+        struct is_std_simd_mask<S, T, N, std::void_t<std_simd_mask<T, N>>> : std::is_same<S, std_simd_mask<T, N>>
+        {
+        };
     }
 }
 

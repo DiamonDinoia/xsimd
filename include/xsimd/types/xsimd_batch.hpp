@@ -257,8 +257,10 @@ namespace xsimd
         XSIMD_INLINE register_type to_native() const noexcept;
 
 #if defined(XSIMD_WITH_STD_SIMD) || defined(XSIMD_WITH_STD_EXPERIMENTAL_SIMD)
-        // implicit interop with std::simd / std::experimental::simd, matching width only
-        XSIMD_INLINE batch(detail::std_simd<T, size> const& s) noexcept
+        // implicit interop with std::simd / std::experimental::simd, matching width
+        // only; a width with no std type gets no conversion
+        template <class S, std::enable_if_t<detail::is_std_simd<S, T, size>::value, int> = 0>
+        XSIMD_INLINE batch(S const& s) noexcept
         {
             T tmp[size];
             for (std::size_t i = 0; i < size; ++i)
@@ -268,10 +270,11 @@ namespace xsimd
             *this = load_unaligned(tmp);
         }
 
-        XSIMD_INLINE operator detail::std_simd<T, size>() const noexcept
+        template <class S, std::enable_if_t<detail::is_std_simd<S, T, size>::value, int> = 0>
+        XSIMD_INLINE operator S() const noexcept
         {
-            return detail::std_simd<T, size>([this](std::size_t i)
-                                             { return get(i); });
+            return S([this](std::size_t i)
+                     { return get(i); });
         }
 #endif
 
@@ -471,8 +474,10 @@ namespace xsimd
         XSIMD_INLINE register_type to_native() const noexcept;
 
 #if defined(XSIMD_WITH_STD_SIMD) || defined(XSIMD_WITH_STD_EXPERIMENTAL_SIMD)
-        // implicit interop with std::simd / std::experimental::simd, matching width only
-        XSIMD_INLINE batch_bool(detail::std_simd_mask<T, size> const& m) noexcept
+        // implicit interop with std::simd / std::experimental::simd, matching width
+        // only; a width with no std type gets no conversion
+        template <class S, std::enable_if_t<detail::is_std_simd_mask<S, T, size>::value, int> = 0>
+        XSIMD_INLINE batch_bool(S const& m) noexcept
         {
             bool tmp[size];
             for (std::size_t i = 0; i < size; ++i)
@@ -482,16 +487,17 @@ namespace xsimd
             *this = load_unaligned(tmp);
         }
 
-        XSIMD_INLINE operator detail::std_simd_mask<T, size>() const noexcept
+        template <class S, std::enable_if_t<detail::is_std_simd_mask<S, T, size>::value, int> = 0>
+        XSIMD_INLINE operator S() const noexcept
         {
 #if defined(XSIMD_WITH_STD_SIMD)
-            return detail::std_simd_mask<T, size>([this](std::size_t i)
-                                                  { return get(i); });
+            return S([this](std::size_t i)
+                     { return get(i); });
 #else
             // shortcut: std::experimental::simd_mask has no generator constructor, load from a lane array instead
             bool tmp[size];
             store_unaligned(tmp);
-            return detail::std_simd_mask<T, size>(tmp, std::experimental::element_aligned);
+            return S(tmp, std::experimental::element_aligned);
 #endif
         }
 #endif

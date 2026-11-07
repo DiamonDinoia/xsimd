@@ -60,10 +60,15 @@ jobs:
         if [[ '${{ contains(matrix.sys.flags, 'xtl-complex') }}' == 'true' ]]; then
           CMAKE_ARGS+=(-D ENABLE_XTL_COMPLEX=ON)
         fi
+        STD_SIMD="-DXSIMD_ENABLE_STD_SIMD"
+        if [[ '${{ matrix.sys.compiler == 'gcc' && matrix.sys.version < 11 }}' == 'true' ]]; then
+          # <experimental/simd> exists only from gcc 11
+          STD_SIMD=""
+        fi
         if [[ '${{ contains(matrix.sys.flags, '32bits') }}' == 'true' ]]; then
-          CMAKE_ARGS+=(-D CMAKE_CXX_FLAGS="-m32 -DXSIMD_ENABLE_STD_SIMD")
+          CMAKE_ARGS+=(-D CMAKE_CXX_FLAGS="-m32 $STD_SIMD")
         else
-          CMAKE_ARGS+=(-D CMAKE_CXX_FLAGS="-DXSIMD_ENABLE_STD_SIMD")
+          CMAKE_ARGS+=(-D CMAKE_CXX_FLAGS="$STD_SIMD")
         fi
 
         cmake -B build/ -G Ninja \
