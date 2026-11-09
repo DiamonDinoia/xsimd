@@ -3,6 +3,7 @@
 # Martin Renou                                                             #
 # Copyright (c) QuantStack                                                 #
 # Copyright (c) Serge Guelton                                              #
+# Copyright (c) Marco Barbone                                              #
 #                                                                          #
 # Distributed under the terms of the BSD 3-Clause License.                 #
 #                                                                          #
@@ -90,6 +91,7 @@ set(XSIMD_TESTS
     test_rounding.cpp
     test_select.cpp
     test_shuffle.cpp
+    test_std_simd.cpp
     test_sum.cpp
     test_traits.cpp
     test_trigonometric.cpp

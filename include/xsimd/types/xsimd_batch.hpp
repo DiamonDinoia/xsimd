@@ -3,6 +3,7 @@
  * Martin Renou                                                             *
  * Copyright (c) QuantStack                                                 *
  * Copyright (c) Serge Guelton                                              *
+ * Copyright (c) Marco Barbone                                              *
  *                                                                          *
  * Distributed under the terms of the BSD 3-Clause License.                 *
  *                                                                          *
@@ -17,6 +18,9 @@
 #include "../config/xsimd_macros.hpp"
 #include "../memory/xsimd_alignment.hpp"
 #include "./xsimd_batch_fwd.hpp"
+#ifdef XSIMD_ENABLE_STD_SIMD
+#include "./xsimd_std_simd.hpp"
+#endif
 #include "./xsimd_utils.hpp"
 
 #include <cassert>
@@ -255,6 +259,42 @@ namespace xsimd
 
         XSIMD_INLINE register_type to_native() const noexcept;
 
+#ifdef XSIMD_ENABLE_STD_SIMD
+        template <class S, std::enable_if_t<detail::is_std_simd<S, T, size>::value, int> = 0>
+        XSIMD_INLINE batch(S const& s) noexcept
+        {
+            if constexpr (detail::std_reg_path<S, types::simd_register<T, A>>::value)
+            {
+                *this = batch(static_cast<register_type>(s));
+            }
+            else
+            {
+                T tmp[size];
+                for (std::size_t i = 0; i < size; ++i)
+                {
+                    tmp[i] = s[i];
+                }
+                *this = load_unaligned(tmp);
+            }
+        }
+
+        template <class S, std::enable_if_t<detail::is_std_simd<S, T, size>::value, int> = 0>
+        XSIMD_INLINE operator S() const noexcept
+        {
+            if constexpr (detail::std_reg_path<S, types::simd_register<T, A>>::value)
+            {
+                return S(this->to_native());
+            }
+            else
+            {
+                T tmp[size];
+                store_unaligned(tmp);
+                return S([tmp](std::size_t i)
+                         { return tmp[i]; });
+            }
+        }
+#endif
+
         template <class U>
         [[nodiscard]] static XSIMD_INLINE batch broadcast(U val) noexcept;
 
@@ -449,6 +489,20 @@ namespace xsimd
         XSIMD_INLINE batch_bool(Tp const*) = delete;
 
         XSIMD_INLINE register_type to_native() const noexcept;
+
+#ifdef XSIMD_ENABLE_STD_SIMD
+        template <class S, std::enable_if_t<detail::is_std_simd_mask<S, T, size>::value, int> = 0>
+        XSIMD_INLINE batch_bool(S const& m) noexcept
+            : batch_bool(detail::std_mask_to_batch<S, batch_bool>(m))
+        {
+        }
+
+        template <class S, std::enable_if_t<detail::is_std_simd_mask<S, T, size>::value, int> = 0>
+        XSIMD_INLINE operator S() const noexcept
+        {
+            return detail::std_mask_from_batch<S>(*this);
+        }
+#endif
 
         // memory operators
         XSIMD_INLINE void store_aligned(bool* mem) const noexcept;

@@ -7,14 +7,24 @@ concurrency:
 jobs:
   build-unix:
     name: 'Unix C++${{ matrix.cxx-version }}'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       matrix:
         cxx-version: [17, 20]
+        include:
+        - cxx-version: 26
+          os: ubuntu-26.04
+          cxx-flags: -DCMAKE_CXX_FLAGS=-DXSIMD_ENABLE_STD_SIMD
     steps:
     - uses: actions/checkout@v6
+    - name: Setup compiler
+      if: matrix.cxx-version == 26
+      uses: ./.github/actions/setup-compiler-apt
+      with:
+        compiler: gcc
+        version: 16
     - name: Setup
-      run: cmake -B build/ -DBUILD_TESTS=ON -DDOWNLOAD_DOCTEST=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{matrix.cxx-version}}
+      run: cmake -B build/ -DBUILD_TESTS=ON -DDOWNLOAD_DOCTEST=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=${{matrix.cxx-version}} ${{ matrix.cxx-flags }}
     - name: Build
       run: cmake --build build/
     - name: Test
